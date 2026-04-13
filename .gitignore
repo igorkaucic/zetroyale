@@ -1,0 +1,4 @@
+node_modules/
+localhost-key.pem
+localhost.pem
+run_royale.bat

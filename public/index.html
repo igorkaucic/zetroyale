@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>ZET Royale</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        :root{
+            --cyan:#00ffd5;--red:#ff2d2d;--green:#00ff6a;--amber:#ffd600;
+            --bg:#05080f;--panel:rgba(5,8,15,0.88);
+        }
+        body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:#d0d0d0;overflow:hidden;user-select:none;-webkit-user-select:none}
+        #map{position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:1}
+
+        /* ─── TOP HUD ─────────────────────────────────────── */
+        #top-hud{
+            position:fixed;top:0;left:0;right:0;z-index:1000;
+            padding:14px 18px 0;
+            display:flex;justify-content:space-between;align-items:flex-start;
+            pointer-events:none;
+            background:linear-gradient(180deg,rgba(0,0,0,0.92) 0%,transparent 100%);
+        }
+        .logo{font-family:'Orbitron',monospace;line-height:1}
+        .logo .z{font-size:28px;font-weight:900;color:var(--cyan);text-shadow:0 0 20px rgba(0,255,213,.6);letter-spacing:2px}
+        .logo .r{font-size:14px;font-weight:900;color:var(--red);text-shadow:0 0 15px rgba(255,45,45,.6);letter-spacing:3px;display:block}
+        .hud-stats{text-align:right;display:flex;flex-direction:column;gap:3px}
+        .hud-stat{font-family:'Orbitron',monospace;font-size:10px;color:rgba(255,255,255,.45);letter-spacing:1px}
+        .hud-stat span{color:var(--cyan)}
+
+        /* ─── PHASE BADGE ─────────────────────────────────── */
+        #phase-badge{
+            position:fixed;top:70px;left:50%;transform:translateX(-50%);
+            z-index:1001;padding:5px 16px;
+            font-family:'Orbitron',monospace;font-size:9px;font-weight:800;
+            letter-spacing:2px;text-transform:uppercase;border-radius:3px;
+            transition:all .5s ease;pointer-events:none;
+        }
+        #phase-badge.train{background:rgba(255,214,0,.12);border:1px solid rgba(255,214,0,.4);color:var(--amber);box-shadow:0 0 20px rgba(255,214,0,.15)}
+        #phase-badge.walk{background:rgba(0,255,213,.1);border:1px solid rgba(0,255,213,.35);color:var(--cyan);box-shadow:0 0 20px rgba(0,255,213,.15)}
+        #phase-badge.extract{background:rgba(255,45,45,.18);border:1px solid rgba(255,45,45,.5);color:var(--red);box-shadow:0 0 20px rgba(255,45,45,.3);animation:extractPulse 1s infinite}
+        @keyframes extractPulse{0%,100%{opacity:1}50%{opacity:.6}}
+
+        /* ─── MAIN INFO CARD ──────────────────────────────── */
+        #info-card{
+            position:fixed;bottom:78px;left:50%;transform:translateX(-50%);
+            z-index:1000;width:92%;max-width:340px;
+            background:var(--panel);backdrop-filter:blur(18px);
+            border-radius:6px;overflow:hidden;
+            transition:all .4s ease;
+        }
+        /* Train phase */
+        #info-card.train{border:1px solid rgba(255,214,0,.2);border-top:2px solid var(--amber)}
+        /* Walk phase */
+        #info-card.walk{border:1px solid rgba(0,255,213,.15);border-top:2px solid var(--cyan)}
+        /* Extract phase */
+        #info-card.extract{border:1px solid rgba(255,45,45,.4);border-top:2px solid var(--red)}
+
+        #card-label{
+            padding:10px 14px 4px;
+            font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;
+            color:rgba(255,255,255,.35);
+        }
+        #card-stop{
+            padding:0 14px 4px;
+            font-family:'Orbitron',monospace;font-size:15px;font-weight:800;color:#fff;
+        }
+
+        #big-timer{
+            text-align:center;padding:6px 14px 10px;
+            font-family:'Orbitron',monospace;font-size:58px;font-weight:900;
+            color:#fff;line-height:1;letter-spacing:2px;
+        }
+        #timer-label{
+            font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;
+            text-align:center;color:var(--red);
+            animation:timerLabelPulse 2s infinite;
+        }
+        @keyframes timerLabelPulse{0%,100%{opacity:.7}50%{opacity:1}}
+
+        /* Prediction row */
+        #prediction{
+            display:flex;gap:0;padding:8px 14px 12px;
+        }
+        .pred-cell{flex:1;text-align:center;border-right:1px solid rgba(255,255,255,.07)}
+        .pred-cell:last-child{border-right:none}
+        .pred-lbl{font-size:9px;font-weight:700;color:rgba(255,255,255,.28);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:3px}
+        .pred-val{font-family:'Orbitron',monospace;font-size:13px;font-weight:700;color:#fff}
+        .pred-val.green{color:var(--green)}
+        .pred-val.amber{color:var(--amber)}
+        .pred-val.red{color:var(--red)}
+
+        /* Status strip */
+        #status-strip{
+            padding:9px 14px;text-align:center;
+            font-family:'Orbitron',monospace;font-size:11px;font-weight:800;
+            letter-spacing:1.5px;text-transform:uppercase;
+            transition:all .4s;
+        }
+        #status-strip.safe{background:linear-gradient(135deg,rgba(0,255,106,.12),rgba(0,255,106,.04));color:var(--green);border-top:1px solid rgba(0,255,106,.2)}
+        #status-strip.risk{background:linear-gradient(135deg,rgba(255,214,0,.12),rgba(255,214,0,.04));color:var(--amber);border-top:1px solid rgba(255,214,0,.25);animation:riskPulse 1.5s infinite}
+        #status-strip.danger{background:linear-gradient(135deg,rgba(255,45,45,.2),rgba(255,45,45,.06));color:var(--red);border-top:1px solid rgba(255,45,45,.4);animation:dangerFlash 1s infinite}
+        @keyframes riskPulse{0%,100%{opacity:.8}50%{opacity:1}}
+        @keyframes dangerFlash{0%,100%{opacity:1;background:linear-gradient(135deg,rgba(255,45,45,.2),rgba(255,45,45,.06))}50%{opacity:.9;background:linear-gradient(135deg,rgba(255,45,45,.35),rgba(255,45,45,.15))}}
+
+        /* ─── 3 NAV BUTTONS ────────────────────────────────── */
+        #nav-bar{
+            position:fixed;bottom:0;left:0;right:0;height:68px;z-index:1000;
+            background:linear-gradient(0deg,rgba(5,8,15,.98),rgba(5,8,15,.75));
+            border-top:1px solid rgba(0,255,213,.15);
+            display:flex;align-items:center;justify-content:space-evenly;
+        }
+        .nav-btn{
+            display:flex;flex-direction:column;align-items:center;gap:4px;
+            width:90px;height:52px;border-radius:8px;cursor:pointer;transition:all .2s;
+        }
+        .nav-btn.active{background:rgba(0,255,213,.08);box-shadow:inset 0 0 12px rgba(0,255,213,.15)}
+        .nav-icon{font-size:20px;transition:all .2s}
+        .nav-lbl{font-family:'Orbitron',monospace;font-size:9px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:1px;transition:all .2s}
+        .nav-btn.active .nav-lbl{color:var(--cyan)}
+        .nav-live{display:flex;align-items:center;gap:5px}
+        #live-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:livePulse 1.5s infinite}
+        #live-dot.off{background:var(--red);box-shadow:0 0 8px var(--red);animation:none}
+        @keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+
+        /* ─── INTEL CARD (tap bus) ──────────────────────────── */
+        #intel{
+            position:fixed;top:75px;left:50%;transform:translateX(-50%);
+            width:90%;max-width:320px;z-index:2001;
+            background:rgba(4,7,12,.97);border:1px solid var(--cyan);border-top:2px solid var(--cyan);
+            border-radius:5px;padding:14px 16px;
+            display:none;box-shadow:0 15px 40px rgba(0,0,0,.9);
+        }
+        #intel-hdr{display:flex;justify-content:space-between;margin-bottom:12px}
+        #intel-title{font-family:'Orbitron',monospace;font-size:11px;font-weight:800;color:var(--cyan);letter-spacing:1.5px}
+        #intel-close{cursor:pointer;color:rgba(255,255,255,.4);font-size:18px;line-height:1}
+        #intel-close:hover{color:var(--red)}
+        .intel-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+        .intel-row{display:flex;flex-direction:column}
+        .intel-lbl{font-size:9px;font-weight:700;color:rgba(255,255,255,.28);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:2px}
+        .intel-val{font-family:'Orbitron',monospace;font-size:14px;font-weight:700;color:#fff}
+        .intel-val.amber{color:var(--amber)}.intel-val.green{color:var(--green)}.intel-val.red{color:var(--red)}
+        #intel-dir{
+            margin-top:10px;padding:6px 10px;text-align:center;
+            font-family:'Orbitron',monospace;font-size:10px;font-weight:700;letter-spacing:1px;
+            color:var(--amber);background:rgba(255,214,0,.06);border:1px solid rgba(255,214,0,.2);border-radius:2px;
+        }
+
+        /* ─── TOAST ALERT ───────────────────────────────────── */
+        #toast{
+            position:fixed;top:-80px;left:50%;transform:translateX(-50%);
+            z-index:3000;padding:14px 24px;border-radius:3px;
+            font-family:'Orbitron',monospace;font-size:12px;font-weight:800;
+            text-transform:uppercase;letter-spacing:1.5px;color:#fff;
+            background:var(--red);box-shadow:0 8px 30px rgba(255,45,45,.6);
+            transition:top .4s cubic-bezier(.175,.885,.32,1.275);
+            white-space:nowrap;text-align:center;
+        }
+        #toast.show{top:75px}
+
+        /* ─── LEAFLET OVERRIDES ─────────────────────────────── */
+        .leaflet-control-attribution,.leaflet-control-zoom{display:none!important}
+
+        /* ─── BUS MARKER ─────────────────────────────────────── */
+        .bus-wrap{position:relative;cursor:pointer}
+        .bus-dot{
+            width:32px;height:32px;border-radius:6px;
+            background:rgba(0,255,213,.1);border:2px solid var(--cyan);
+            display:flex;align-items:center;justify-content:center;font-size:16px;
+            box-shadow:0 0 14px rgba(0,255,213,.4);transition:all .3s;
+        }
+        .bus-dot.tracked{
+            background:rgba(0,255,106,.15);border-color:var(--green);
+            box-shadow:0 0 25px rgba(0,255,106,.7);transform:scale(1.15);
+            animation:trackedGlow 2s infinite;
+        }
+        @keyframes trackedGlow{0%,100%{box-shadow:0 0 25px rgba(0,255,106,.7)}50%{box-shadow:0 0 40px rgba(0,255,106,1),0 0 60px rgba(0,255,106,.3)}}
+        .bus-dot.ghost{
+            background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.2);
+            box-shadow:none;opacity:.45;transform:scale(.85);
+        }
+        .bus-tag.ghost{
+            background:rgba(255,255,255,.15);color:rgba(255,255,255,.5);
+        }
+        .bus-tag{
+            position:absolute;top:-22px;left:50%;transform:translateX(-50%);
+            font-family:'Orbitron',monospace;font-size:9px;font-weight:800;
+            background:var(--cyan);color:#000;padding:2px 7px;border-radius:2px;
+            white-space:nowrap;
+        }
+        .bus-tag.tracked{background:var(--green)}
+        .stop-marker{
+            width:14px;height:14px;border-radius:50%;
+            background:rgba(0,255,213,.2);border:2px solid var(--cyan);
+            box-shadow:0 0 10px var(--cyan);
+        }
+        .stop-lbl{
+            position:absolute;top:-22px;left:50%;transform:translateX(-50%);
+            font-family:'Orbitron',monospace;font-size:9px;font-weight:700;
+            color:var(--cyan);white-space:nowrap;text-shadow:0 2px 8px rgba(0,0,0,1);
+        }
+        .user-dot{
+            width:18px;height:18px;border-radius:50%;
+            background:#fff;border:3px solid var(--cyan);
+            box-shadow:0 0 15px rgba(0,255,213,.8);position:relative;
+        }
+        .user-ring{
+            position:absolute;top:-12px;left:-12px;width:42px;height:42px;
+            border-radius:50%;border:1px solid rgba(0,255,213,.5);
+            animation:userRing 2s infinite ease-out;
+        }
+        @keyframes userRing{0%{transform:scale(.3);opacity:1}100%{transform:scale(1);opacity:0}}
+    </style>
+</head>
+<body>
+
+<!-- TOP HUD -->
+<div id="top-hud">
+    <div class="logo">
+        <span class="z">ZET</span>
+        <span class="r">ROYALE</span>
+    </div>
+    <div class="hud-stats">
+        <div class="hud-stat">SPD <span id="hud-spd">--</span> KM/H</div>
+        <div class="hud-stat">DIST <span id="hud-dist">--</span> KM</div>
+        <div class="hud-stat">T+ <span id="hud-timer">00:00:00</span></div>
+    </div>
+</div>
+
+<div id="phase-badge" class="walk">INITIALIZING</div>
+<div id="map"></div>
+
+<!-- MAIN CARD -->
+<div id="info-card" class="walk">
+    <div id="card-label">NEXT STOP:</div>
+    <div id="card-stop">GLAVNI KOLODVOR</div>
+    <div id="tracked-id" style="padding:0 14px 2px;font-family:'Orbitron',monospace;font-size:9px;color:rgba(0,255,213,.5);letter-spacing:1.5px">// TARGET: ---</div>
+    <div id="timer-label">EMERGENCY COUNTDOWN</div>
+    <div id="big-timer">--:--</div>
+    <div id="prediction">
+        <div class="pred-cell"><div class="pred-lbl">Bus ETA</div><div class="pred-val" id="pred-bus">--m</div></div>
+        <div class="pred-cell"><div class="pred-lbl">Walk Time</div><div class="pred-val" id="pred-walk">--m</div></div>
+        <div class="pred-cell"><div class="pred-lbl">Buffer</div><div class="pred-val" id="pred-buf">--m</div></div>
+    </div>
+    <div id="status-strip" class="safe">WAITING FOR DATA</div>
+</div>
+
+<!-- NAV BAR -->
+<div id="nav-bar">
+    <div class="nav-btn active" id="btn-track" onclick="navTrack()">
+        <span class="nav-icon">🚌</span>
+        <span class="nav-lbl">TRACK</span>
+    </div>
+    <div class="nav-btn" id="btn-me" onclick="navMe()">
+        <span class="nav-icon">📍</span>
+        <span class="nav-lbl">ME</span>
+    </div>
+    <div class="nav-btn" id="btn-live">
+        <div class="nav-live"><span id="live-dot"></span></div>
+        <span class="nav-lbl" id="live-lbl">LIVE</span>
+    </div>
+</div>
+
+<!-- BUS INTEL POPUP -->
+<div id="intel">
+    <div id="intel-hdr">
+        <span id="intel-title">// TARGET: BUS #268</span>
+        <span id="intel-close" onclick="closeIntel()">✕</span>
+    </div>
+    <div class="intel-grid">
+        <div class="intel-row"><div class="intel-lbl">Current Speed</div><div class="intel-val amber" id="i-spd">--</div></div>
+        <div class="intel-row"><div class="intel-lbl">Avg Speed</div><div class="intel-val" id="i-avg">--</div></div>
+        <div class="intel-row"><div class="intel-lbl">ETA → Orešk.</div><div class="intel-val green" id="i-eta-o">--</div></div>
+        <div class="intel-row"><div class="intel-lbl">ETA → Glavni</div><div class="intel-val green" id="i-eta-g">--</div></div>
+        <div class="intel-row"><div class="intel-lbl">Dist to Orešk.</div><div class="intel-val" id="i-d-o">--</div></div>
+        <div class="intel-row"><div class="intel-lbl">Dist to Glavni</div><div class="intel-val" id="i-d-g">--</div></div>
+    </div>
+    <div id="intel-dir">? HEADING: UNKNOWN</div>
+</div>
+
+<!-- TOAST -->
+<div id="toast">⚠ EXTRACTION IN 5 MIN — MOVE NOW ⚠</div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+//  ZET ROYALE — Full Tactical Frontend
+// ══════════════════════════════════════════════════════════
+
+const STOPS = {
+    oresk:   { name: 'OREŠKOVIĆEVA',    lat: 45.7595, lon: 15.9835 },
+    glavni:  { name: 'GLAVNI KOLODVOR', lat: 45.80292, lon: 15.97724 }
+};
+
+// ── User's fixed locations ──────────────────────────────────
+const HOME = { name: 'HOME',  lat: 45.8159, lon: 15.8763 }; // Hrvatskih iseljenika 5
+const WORK = { name: 'WORK',  lat: 45.7595, lon: 15.9835 }; // Oreškovićeva
+
+// ── Dynamic mode: detected from GPS ─────────────────────────
+// Near HOME → going to WORK:
+//   Take bus at Glavni heading toward_vg (southbound to Oreškovićeva)
+//   Extraction = Glavni (where you board)
+// Near WORK → going HOME:
+//   Take bus at Oreškovićeva heading toward_glavni (northbound to Glavni, then train)
+//   Extraction = Oreškovićeva (where you board)
+//   Only track buses SOUTH of Oreškovićeva (haven't passed your stop yet)
+let commute = 'to_work';
+let extractionStop = STOPS.glavni;
+let wantDirection = 'toward_vg'; // which direction buses should be heading
+let busEtaField = 'etaGlavni';  // which ETA to use
+let busDistField = 'distGlavni'; // which distance to use
+
+const WALK_SPEED_MPS = 1.4;
+const WALK_RADIUS_ENTER = 800;
+
+const PHASE = { TRAIN: 'train', WALK: 'walk', EXTRACT: 'extract' };
+let currentPhase = PHASE.WALK;
+
+// ── Auto-detect commute direction from GPS ──────────────────
+function detectCommute(lat, lon) {
+    const dHome = map.distance([lat, lon], [HOME.lat, HOME.lon]);
+    const dWork = map.distance([lat, lon], [WORK.lat, WORK.lon]);
+
+    if (dHome < dWork) {
+        // Closer to home → heading to work
+        // Board bus at Glavni going south (toward_vg)
+        if (commute !== 'to_work') {
+            commute = 'to_work';
+            extractionStop = STOPS.glavni;
+            wantDirection = 'toward_vg';
+            busEtaField = 'etaGlavni';
+            busDistField = 'distGlavni';
+            console.log('[MODE] Near HOME → TO WORK → track southbound at Glavni');
+        }
+    } else {
+        // Closer to work → heading home
+        // Board bus at Oreškovićeva going north (toward_glavni)
+        // Only buses that haven't passed Oreškovićeva yet
+        if (commute !== 'to_home') {
+            commute = 'to_home';
+            extractionStop = STOPS.oresk;
+            wantDirection = 'toward_glavni';
+            busEtaField = 'etaOresk';
+            busDistField = 'distOresk';
+            console.log('[MODE] Near WORK → TO HOME → track northbound at Oreškovićeva');
+        }
+    }
+}
+
+// ── GPS
+let userLat = null, userLon = null, userSpeed = 0;
+let userMarker = null, walkLine = null, ringCircle = null;
+
+// ── Data
+let cachedBuses = [];
+let trackedBusId = null;
+let notified = false;
+let sessionStart = Date.now();
+
+// ── Live countdown (ticks every second between API fetches)
+let liveEtaMinutes = null;
+const bigTimerEl  = document.getElementById('big-timer');
+
+setInterval(() => {
+    // Session timer
+    const e = Math.floor((Date.now() - sessionStart) / 1000);
+    const h = String(Math.floor(e/3600)).padStart(2,'0');
+    const m = String(Math.floor((e%3600)/60)).padStart(2,'0');
+    const s = String(e%60).padStart(2,'0');
+    document.getElementById('hud-timer').textContent = `${h}:${m}:${s}`;
+
+    // Live countdown
+    if (liveEtaMinutes !== null && liveEtaMinutes > 0) {
+        liveEtaMinutes -= 1/60; // subtract 1 second expressed in minutes
+        if (liveEtaMinutes < 0) liveEtaMinutes = 0;
+        const totalSec = Math.round(liveEtaMinutes * 60);
+        const mins = String(Math.floor(totalSec / 60)).padStart(2, '0');
+        const secs = String(totalSec % 60).padStart(2, '0');
+        bigTimerEl.textContent = `${mins}:${secs}`;
+    }
+}, 1000);
+// ══════════════════════════════════════════════════
+const map = L.map('map', { zoomControl: false }).setView([45.788, 15.983], 13);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+
+// Stop markers
+function makeStopMarker(stop) {
+    L.marker([stop.lat, stop.lon], {
+        icon: L.divIcon({
+            className: '',
+            html: `<div style="position:relative">
+                <div class="stop-marker"></div>
+                <div class="stop-lbl">${stop.name}</div>
+            </div>`,
+            iconSize: [14, 14], iconAnchor: [7, 7]
+        }), zIndexOffset: 500
+    }).addTo(map);
+}
+makeStopMarker(STOPS.oresk);
+makeStopMarker(STOPS.glavni);
+
+// ══════════════════════════════════════════════════
+//  UTILITIES
+// ══════════════════════════════════════════════════
+function distM(lat1, lon1, lat2, lon2) {
+    return map.distance([lat1, lon1], [lat2, lon2]);
+}
+function fmtTime(min) {
+    if (min == null || isNaN(min)) return '--:--';
+    const m = Math.floor(min);
+    const s = Math.round((min - m) * 60);
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+function fmtMin(min) {
+    if (min == null || isNaN(min)) return '--m';
+    return `${Math.round(min)}m`;
+}
+
+// ── Session timer
+setInterval(() => {
+    const e = Math.floor((Date.now() - sessionStart) / 1000);
+    const h = String(Math.floor(e/3600)).padStart(2,'0');
+    const m = String(Math.floor((e%3600)/60)).padStart(2,'0');
+    const s = String(e%60).padStart(2,'0');
+    document.getElementById('hud-timer').textContent = `${h}:${m}:${s}`;
+}, 1000);
+
+// ══════════════════════════════════════════════════
+//  GPS TRACKING
+// ══════════════════════════════════════════════════
+if ('geolocation' in navigator) {
+    navigator.geolocation.watchPosition(pos => {
+        userLat = pos.coords.latitude;
+        userLon = pos.coords.longitude;
+        userSpeed = pos.coords.speed || 0; // m/s from device
+
+        // Auto-detect commute direction
+        detectCommute(userLat, userLon);
+
+        // Update user marker
+        if (userMarker) {
+            userMarker.setLatLng([userLat, userLon]);
+        } else {
+            userMarker = L.marker([userLat, userLon], {
+                icon: L.divIcon({
+                    className: '',
+                    html: `<div style="position:relative"><div class="user-ring"></div><div class="user-dot"></div></div>`,
+                    iconSize: [18, 18], iconAnchor: [9, 9]
+                }), zIndexOffset: 900
+            }).addTo(map);
+        }
+
+        // Phase detection based on distance from GLAVNI
+        const distFromGlavni = distM(userLat, userLon, extractionStop.lat, extractionStop.lon);
+        determinePhase(distFromGlavni);
+
+    }, err => console.warn('GPS:', err.message),
+    { enableHighAccuracy: true, maximumAge: 8000 });
+}
+
+function determinePhase(distFromGlavni) {
+    const bestBus = getBestBus();
+    const busEtaGlavni = bestBus ? bestBus.etaGlavni : null;
+
+    if (distFromGlavni > WALK_RADIUS_ENTER) {
+        // User is on the train
+        setPhase(PHASE.TRAIN);
+    } else if (busEtaGlavni !== null && busEtaGlavni <= 5) {
+        // User is walking + bus imminent
+        setPhase(PHASE.EXTRACT);
+    } else {
+        // User is walking normally
+        setPhase(PHASE.WALK);
+    }
+}
+
+function setPhase(phase) {
+    if (currentPhase === phase) return;
+    currentPhase = phase;
+    updatePhaseUI();
+}
+
+// ══════════════════════════════════════════════════
+//  RING ANIMATION
+// ══════════════════════════════════════════════════
+let currentRingRadius = 0;
+let targetRingRadius = 0;
+let ringAnimFrame = null;
+
+function animateRing() {
+    if (!ringCircle) return;
+    const diff = targetRingRadius - currentRingRadius;
+    if (Math.abs(diff) > 1) {
+        currentRingRadius += diff * 0.06; // smooth lerp
+        ringCircle.setRadius(currentRingRadius);
+        ringAnimFrame = requestAnimationFrame(animateRing);
+    } else {
+        currentRingRadius = targetRingRadius;
+        ringCircle.setRadius(targetRingRadius);
+    }
+}
+
+function updateRing(etaMinutes) {
+    const radiusM = etaMinutes * (WALK_SPEED_MPS * 60); // meters user can cover in eta minutes
+    targetRingRadius = Math.max(0, radiusM);
+
+    const userDist = userLat ? distM(userLat, userLon, extractionStop.lat, extractionStop.lon) : null;
+    const inZone = userDist !== null ? userDist <= radiusM : true;
+    const ringColor = inZone ? 'rgba(0,255,106,0.85)' : 'rgba(255,45,45,0.85)';
+    const ringFill  = inZone ? 'rgba(0,255,106,0.04)' : 'rgba(255,45,45,0.06)';
+
+    if (ringCircle) {
+        ringCircle.setLatLng([extractionStop.lat, extractionStop.lon]);
+        ringCircle.setStyle({ color: ringColor, fillColor: ringFill });
+    } else {
+        currentRingRadius = radiusM;
+        ringCircle = L.circle([extractionStop.lat, extractionStop.lon], {
+            radius: radiusM, color: ringColor, fillColor: ringFill,
+            fillOpacity: 1, weight: 2.5, dashArray: '10 8'
+        }).addTo(map);
+    }
+
+    cancelAnimationFrame(ringAnimFrame);
+    animateRing();
+
+    // Walk line from user to extractionStop
+    if (userLat !== null) {
+        if (walkLine) {
+            walkLine.setLatLngs([[userLat, userLon], [extractionStop.lat, extractionStop.lon]]);
+        } else {
+            walkLine = L.polyline([[userLat, userLon], [extractionStop.lat, extractionStop.lon]], {
+                color: '#00ffd5', weight: 2.5, opacity: 0.55, dashArray: '8 7'
+            }).addTo(map);
+        }
+    }
+
+    return inZone;
+}
+
+// ══════════════════════════════════════════════════
+//  BUS MARKERS & DATA
+// ══════════════════════════════════════════════════
+let busMarkers = {};
+
+function getBestBus() {
+    if (cachedBuses.length === 0) return null;
+
+    // PRIORITY 1: Bus AT extraction stop (within 500m) AND heading the right way
+    const atStation = cachedBuses.filter(b =>
+        b[busDistField] < 0.5 &&
+        (b.direction === wantDirection || b.direction === 'unknown')
+    );
+    if (atStation.length > 0) {
+        atStation.sort((a, b) => a[busDistField] - b[busDistField]);
+        return atStation[0];
+    }
+
+    // PRIORITY 2: Bus heading in the RIGHT direction, not yet at station
+    let inbound = cachedBuses.filter(b =>
+        b.direction === wantDirection || b.direction === 'unknown'
+    );
+
+    // Extra filter for TO_HOME: bus must be SOUTH of Oreškovićeva
+    if (commute === 'to_home') {
+        inbound = inbound.filter(b => b.lat < STOPS.oresk.lat);
+    }
+
+    if (inbound.length > 0) {
+        inbound.sort((a, b) => a[busEtaField] - b[busEtaField]);
+        return inbound[0];
+    }
+
+    // PRIORITY 3: Fallback — closest bus in correct direction (any distance)
+    const anyCorrect = cachedBuses.filter(b => b.direction === wantDirection);
+    if (anyCorrect.length > 0) {
+        anyCorrect.sort((a, b) => a[busEtaField] - b[busEtaField]);
+        return anyCorrect[0];
+    }
+
+    // PRIORITY 4: Last resort — closest bus
+    cachedBuses.sort((a, b) => a[busDistField] - b[busDistField]);
+    return cachedBuses[0];
+}
+
+function updateBusMarkers() {
+    const currentIds = new Set();
+
+    cachedBuses.forEach(bus => {
+        currentIds.add(bus.id);
+        const isTrk = bus.id === trackedBusId;
+
+        if (busMarkers[bus.id]) {
+            busMarkers[bus.id].setLatLng([bus.lat, bus.lon]);
+            const el = busMarkers[bus.id].getElement();
+            if (el) {
+                const dot = el.querySelector('.bus-dot');
+                const tag = el.querySelector('.bus-tag');
+                if (dot) dot.className = `bus-dot${isTrk?' tracked':' ghost'}`;
+                if (tag) tag.className = `bus-tag${isTrk?' tracked':' ghost'}`;
+            }
+        } else {
+            const m = L.marker([bus.lat, bus.lon], {
+                icon: L.divIcon({
+                    className: '',
+                    html: `<div class="bus-wrap">
+                        <div class="bus-tag${isTrk?' tracked':' ghost'}">#268</div>
+                        <div class="bus-dot${isTrk?' tracked':' ghost'}">🚌</div>
+                    </div>`,
+                    iconSize: [32, 32], iconAnchor: [16, 16]
+                }),
+                zIndexOffset: isTrk ? 1000 : 100
+            }).addTo(map);
+            m.on('click', () => showIntel(bus));
+            busMarkers[bus.id] = m;
+        }
+    });
+
+    // Remove gone buses
+    Object.keys(busMarkers).forEach(id => {
+        if (!currentIds.has(id)) { map.removeLayer(busMarkers[id]); delete busMarkers[id]; }
+    });
+}
+
+// ══════════════════════════════════════════════════
+//  UPDATE UI LOGIC
+// ══════════════════════════════════════════════════
+function updatePhaseUI() {
+    const badge = document.getElementById('phase-badge');
+    const card  = document.getElementById('info-card');
+    const label = document.getElementById('card-label');
+    const stopEl= document.getElementById('card-stop');
+    const timerLbl = document.getElementById('timer-label');
+
+    badge.className = `${currentPhase}`;
+    card.className  = currentPhase;
+
+    if (currentPhase === PHASE.TRAIN) {
+        badge.textContent = '🚂 TRAIN MODE — APPROACHING STATION';
+        label.textContent = 'ARRIVING AT:';
+        stopEl.textContent = extractionStop.name;
+        timerLbl.textContent = 'TIME UNTIL EXTRACTION WINDOW';
+    } else if (currentPhase === PHASE.WALK) {
+        badge.textContent = '🚶 APPROACH MODE — WALKING TO STOP';
+        label.textContent = 'TARGET STOP:';
+        stopEl.textContent = extractionStop.name;
+        timerLbl.textContent = `BUS ETA AT ${extractionStop.name}`;
+    } else if (currentPhase === PHASE.EXTRACT) {
+        badge.textContent = '⚠ EXTRACTION MODE — MOVE NOW';
+        label.textContent = 'EMERGENCY:';
+        stopEl.textContent = extractionStop.name;
+        timerLbl.textContent = '⚠ EMERGENCY COUNTDOWN ⚠';
+    }
+}
+
+function renderUpdate() {
+    // Always show ALL buses on map regardless of tracking state
+    updateBusMarkers();
+    console.log(`[RENDER] ${cachedBuses.length} buses on map, commute=${commute}, wantDir=${wantDirection}`);
+
+    const best = getBestBus();
+    if (!best) {
+        liveEtaMinutes = null;
+        bigTimerEl.textContent = '--:--';
+        document.getElementById('status-strip').className = 'safe';
+        document.getElementById('status-strip').textContent = `NO MATCHING BUS (${cachedBuses.length} in sector)`;
+        document.getElementById('tracked-id').textContent = '// TARGET: NONE';
+        return;
+    }
+
+    // Detect silent bus swap
+    if (trackedBusId && trackedBusId !== best.id) {
+        // Different bus — show transition toast
+        const t = document.getElementById('toast');
+        t.textContent = `⟳ TARGET SWAP — NOW TRACKING ${best.id.slice(-5)}`;
+        t.style.background = 'var(--amber)';
+        t.classList.add('show');
+        setTimeout(() => { t.classList.remove('show'); t.style.background = ''; t.textContent = '⚠ EXTRACTION IN 5 MIN — MOVE NOW ⚠'; }, 4000);
+    }
+
+    trackedBusId = best.id;
+    document.getElementById('tracked-id').textContent = `// TARGET: BUS ${best.id.slice(-5)}`;
+
+    const busEta = best[busEtaField];   // ETA to the extraction stop
+    const busDist = best[busDistField]; // distance to the extraction stop
+    document.getElementById('hud-spd').textContent = best.speed || '--';
+    document.getElementById('hud-dist').textContent = busDist || '--';
+
+    const bigTimer = document.getElementById('big-timer');
+    const timerLabel = document.getElementById('timer-label');
+    const statusStrip = document.getElementById('status-strip');
+    const predBus  = document.getElementById('pred-bus');
+    const predWalk = document.getElementById('pred-walk');
+    const predBuf  = document.getElementById('pred-buf');
+    const cardLabel = document.getElementById('card-label');
+    const cardStop  = document.getElementById('card-stop');
+    const badge = document.getElementById('phase-badge');
+
+    const stopName = extractionStop.name;
+
+    // ═══════════════════════════════════════════════
+    // SPECIAL CASE: BUS IS AT THE STATION (< 500m)
+    // ═══════════════════════════════════════════════
+    if (busDist < 0.5) {
+        const isStanding = best.speed < 3;
+        const distMeters = Math.round(busDist * 1000);
+
+        // Phase override
+        badge.className = 'extract';
+        badge.textContent = isStanding
+            ? '🟢 BUS AT STATION — BOARDING WINDOW OPEN'
+            : '🟡 BUS AT STATION — MOVING';
+
+        cardLabel.textContent = 'STATUS:';
+        cardStop.textContent = stopName;
+        timerLabel.textContent = isStanding ? '🟢 STILL STANDING' : '⚡ IN MOTION';
+
+        // Timer shows distance in meters instead of countdown
+        liveEtaMinutes = null;
+        bigTimerEl.textContent = `${distMeters}m`;
+        bigTimerEl.style.color = isStanding ? 'var(--green)' : 'var(--amber)';
+
+        // Prediction cells
+        predBus.textContent = `${distMeters}m`;
+        predBus.className = 'pred-val green';
+
+        // Walk time to stop from user position
+        if (userLat !== null) {
+            const distToStop = distM(userLat, userLon, extractionStop.lat, extractionStop.lon);
+            const walkMin = distToStop / (WALK_SPEED_MPS * 60);
+            predWalk.textContent = fmtMin(walkMin);
+            predWalk.className = 'pred-val';
+            predBuf.textContent = walkMin < 2 ? 'YES' : 'RUN';
+            predBuf.className = walkMin < 2 ? 'pred-val green' : 'pred-val red';
+
+            // Tiny ring at station
+            updateRing(Math.max(0.5, walkMin));
+        } else {
+            predWalk.textContent = '--m';
+            predBuf.textContent = '---';
+            predBuf.className = 'pred-val';
+            updateRing(0.5); // tiny ring
+        }
+
+        // Prediction labels
+        document.querySelector('#prediction .pred-cell:nth-child(1) .pred-lbl').textContent = 'DIST';
+        document.querySelector('#prediction .pred-cell:nth-child(2) .pred-lbl').textContent = 'Walk';
+        document.querySelector('#prediction .pred-cell:nth-child(3) .pred-lbl').textContent = 'Catch?';
+
+        if (isStanding) {
+            statusStrip.className = 'safe';
+            statusStrip.textContent = '✓ EXTRACTION AVAILABLE — BUS IS WAITING';
+        } else {
+            statusStrip.className = 'risk';
+            statusStrip.textContent = '⚡ BUS MOVING AT STATION — HURRY';
+        }
+
+        updateBusMarkers();
+        return;
+    }
+
+    // ═══════════════════════════════════════════════
+    // NORMAL CASE: BUS IS INCOMING
+    // ═══════════════════════════════════════════════
+    // Reset prediction labels
+    document.querySelector('#prediction .pred-cell:nth-child(1) .pred-lbl').textContent = 'Bus ETA';
+    document.querySelector('#prediction .pred-cell:nth-child(2) .pred-lbl').textContent = 'Walk Time';
+    document.querySelector('#prediction .pred-cell:nth-child(3) .pred-lbl').textContent = 'Buffer';
+
+    // Seed the live countdown — smooth toward new value instead of snapping
+    if (liveEtaMinutes === null || Math.abs(liveEtaMinutes - busEta) > 3) {
+        // First data or massive correction → snap immediately
+        liveEtaMinutes = busEta;
+    } else {
+        // Blend: 60% current countdown + 40% new server value
+        liveEtaMinutes = liveEtaMinutes * 0.6 + busEta * 0.4;
+    }
+    bigTimer.style.color = '#fff';
+
+    // Walking calc
+    let walkMinutes = null;
+    let bufferMinutes = null;
+    let inZone = true;
+
+    if (userLat !== null) {
+        const distToStop = distM(userLat, userLon, extractionStop.lat, extractionStop.lon);
+        walkMinutes = distToStop / (WALK_SPEED_MPS * 60);
+        bufferMinutes = busEta - walkMinutes;
+        inZone = updateRing(busEta);
+    } else {
+        updateRing(busEta);
+    }
+
+    // Train ETA (speed-based)
+    let trainEtaMin = null;
+    if (userLat !== null && userSpeed > 5) {
+        const distM_val = distM(userLat, userLon, extractionStop.lat, extractionStop.lon);
+        trainEtaMin = distM_val / (userSpeed * 60);
+    }
+
+    // Phase-specific display
+    if (currentPhase === PHASE.TRAIN) {
+        badge.className = 'train';
+        badge.textContent = '🚂 TRAIN MODE — APPROACHING STATION';
+        cardLabel.textContent = 'ARRIVING AT:';
+        cardStop.textContent = stopName;
+        timerLabel.textContent = `BUS ARRIVES AT ${stopName} IN`;
+        predBus.textContent  = fmtMin(busEta);
+        predBus.className    = 'pred-val';
+        predWalk.textContent = trainEtaMin ? fmtMin(trainEtaMin) : '--m';
+        predWalk.className   = 'pred-val amber';
+
+        if (trainEtaMin !== null) {
+            const buf = busEta - trainEtaMin;
+            predBuf.textContent = fmtMin(Math.abs(buf));
+            if (buf >= 5) {
+                predBuf.className = 'pred-val green';
+                statusStrip.className = 'safe';
+                statusStrip.textContent = `✓ ON TIME — ${Math.round(buf)}m BUFFER`;
+            } else if (buf >= 1) {
+                predBuf.className = 'pred-val amber';
+                statusStrip.className = 'risk';
+                statusStrip.textContent = `⚠ TIGHT — ONLY ${Math.round(buf)}m BUFFER`;
+            } else {
+                predBuf.className = 'pred-val red';
+                statusStrip.className = 'danger';
+                statusStrip.textContent = `⛔ RISK — BUS MAY DEPART FIRST`;
+            }
+        } else {
+            predBuf.textContent = '--m';
+            statusStrip.className = 'safe';
+            statusStrip.textContent = 'CALCULATING TRAJECTORY...';
+        }
+
+    } else {
+        // WALK / EXTRACT phase
+        if (busEta <= 5) {
+            badge.className = 'extract';
+            badge.textContent = '⚠ EXTRACTION MODE — MOVE NOW';
+        } else {
+            badge.className = 'walk';
+            badge.textContent = '🚶 APPROACH MODE — WALKING TO STOP';
+        }
+        cardLabel.textContent = 'TARGET STOP:';
+        cardStop.textContent = stopName;
+        timerLabel.textContent = busEta <= 5 ? '⚠ EMERGENCY COUNTDOWN ⚠' : `BUS ETA AT ${stopName}`;
+        predBus.textContent  = fmtMin(busEta);
+        predBus.className    = busEta <= 5 ? 'pred-val red' : busEta <= 10 ? 'pred-val amber' : 'pred-val green';
+        predWalk.textContent = walkMinutes !== null ? fmtMin(walkMinutes) : '--m';
+        predWalk.className   = 'pred-val';
+
+        if (walkMinutes !== null && bufferMinutes !== null) {
+            predBuf.textContent = fmtMin(Math.abs(bufferMinutes));
+            if (bufferMinutes >= 3) {
+                predBuf.className = 'pred-val green';
+                statusStrip.className = 'safe';
+                statusStrip.textContent = `✓ SAFE ZONE — ${Math.round(bufferMinutes)}m BUFFER`;
+                bigTimer.style.color = '#fff';
+            } else if (bufferMinutes >= 0) {
+                predBuf.className = 'pred-val amber';
+                statusStrip.className = 'risk';
+                statusStrip.textContent = `⚠ CUTTING IT CLOSE — SPEED UP`;
+                bigTimer.style.color = 'var(--amber)';
+            } else {
+                predBuf.className = 'pred-val red';
+                statusStrip.className = 'danger';
+                statusStrip.textContent = `⛔ EVACUATION ZONE — ${Math.round(-bufferMinutes)}m LATE`;
+                bigTimer.style.color = 'var(--red)';
+            }
+        } else {
+            predBuf.textContent = '--m';
+            if (busEta <= 5) {
+                statusStrip.className = 'danger';
+                statusStrip.textContent = '⚠ BUS ARRIVING — MOVE NOW';
+                bigTimer.style.color = 'var(--red)';
+            } else if (busEta <= 10) {
+                statusStrip.className = 'risk';
+                statusStrip.textContent = `⚡ BUS IN ${Math.round(busEta)} MIN — PREPARE`;
+                bigTimer.style.color = 'var(--amber)';
+            } else {
+                statusStrip.className = 'safe';
+                statusStrip.textContent = `ENABLE GPS FOR RING TRACKING`;
+                bigTimer.style.color = '#fff';
+            }
+        }
+    }
+
+    // ── Notification
+    if (busEta <= 5 && !notified) {
+        notified = true;
+        showToast();
+        sendNotif(busEta);
+    }
+    if (busEta > 7) notified = false;
+
+    updateBusMarkers();
+}
+
+// ══════════════════════════════════════════════════
+//  INTEL POPUP
+// ══════════════════════════════════════════════════
+function showIntel(bus) {
+    document.getElementById('intel').style.display = 'block';
+    document.getElementById('intel-title').textContent = `// BUS #268 — ${bus.id.slice(-5)}`;
+    document.getElementById('i-spd').textContent = `${bus.speed || 0} KM/H`;
+    document.getElementById('i-avg').textContent = `${bus.avgSpeed || 0} KM/H`;
+    document.getElementById('i-eta-o').textContent = `${bus.etaOresk ?? '--'} MIN`;
+    document.getElementById('i-eta-g').textContent = `${bus.etaGlavni ?? '--'} MIN`;
+    document.getElementById('i-d-o').textContent = `${bus.distOresk ?? '--'} KM`;
+    document.getElementById('i-d-g').textContent = `${bus.distGlavni ?? '--'} KM`;
+    document.getElementById('intel-dir').textContent =
+        bus.direction === 'toward_glavni' ? '↑ HEADING: GLAVNI KOLODVOR' :
+        bus.direction === 'toward_vg'     ? '↓ HEADING: VELIKA GORICA' :
+        '? HEADING: UNKNOWN';
+}
+function closeIntel() { document.getElementById('intel').style.display = 'none'; }
+
+// ══════════════════════════════════════════════════
+//  NAV ACTIONS
+// ══════════════════════════════════════════════════
+function navTrack() {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('btn-track').classList.add('active');
+    if (trackedBusId && busMarkers[trackedBusId]) {
+        map.flyTo(busMarkers[trackedBusId].getLatLng(), 15, { duration: 0.8 });
+    }
+}
+function navMe() {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('btn-me').classList.add('active');
+    if (userLat !== null) map.flyTo([userLat, userLon], 16, { duration: 0.8 });
+}
+
+// ══════════════════════════════════════════════════
+//  TOAST & NOTIFICATIONS
+// ══════════════════════════════════════════════════
+function showToast() {
+    const t = document.getElementById('toast');
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 6000);
+}
+function sendNotif(eta) {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'granted') {
+        new Notification('⚠ ZET ROYALE', {
+            body: `Bus 268 arriving at Glavni in ~${Math.round(eta)} min. MOVE!`, tag: 'zet268'
+        });
+    } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission();
+    }
+}
+
+// ══════════════════════════════════════════════════
+//  DATA FETCH LOOP
+// ══════════════════════════════════════════════════
+async function fetchData() {
+    try {
+        const res = await fetch('/api/buses');
+        const data = await res.json();
+        cachedBuses = data.buses || [];
+
+        const dot = document.getElementById('live-dot');
+        dot.className = '';
+        document.getElementById('live-lbl').textContent = 'LIVE';
+        const ago = Math.round((Date.now() - data.lastUpdate) / 1000);
+        // Update phase if GPS known
+        if (userLat !== null) {
+            const d = distM(userLat, userLon, extractionStop.lat, extractionStop.lon);
+            determinePhase(d);
+        }
+        renderUpdate();
+    } catch (err) {
+        document.getElementById('live-dot').className = 'off';
+        document.getElementById('live-lbl').textContent = 'DOWN';
+        console.error(err);
+    }
+}
+
+// ══════════════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════════════
+if (Notification?.permission === 'default') Notification.requestPermission();
+updatePhaseUI();
+fetchData();
+setInterval(fetchData, 10000);
+</script>
+</body>
+</html>
