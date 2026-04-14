@@ -79,19 +79,23 @@ async function fetchBuses() {
                 positionHistory[id] = { lat, lon, time: now, speeds: [] };
             }
 
-            // DIRECTION: ONLY trust actual GPS movement. ZET's directionId is UNRELIABLE.
+            // DIRECTION: GPS movement is king. GTFS directionId only used as bootstrap.
             let direction = 'unknown';
-            let dirSource = 'standing';
+            let dirSource = 'new';
             if (prev) {
                 const latDelta = lat - prev.lat;
-                if (Math.abs(latDelta) > 0.00005) { // ~5.5m movement
+                if (Math.abs(latDelta) > 0.00003) { // ~3.3m movement
                     direction = latDelta > 0 ? 'toward_glavni' : 'toward_vg';
-                    dirSource = `latDelta=${latDelta.toFixed(6)}`;
-                } else {
-                    // Bus barely moved — use last known direction if stored
-                    if (prev.lastDir) { direction = prev.lastDir; dirSource = 'prev_cached'; }
+                    dirSource = `gps=${latDelta.toFixed(6)}`;
+                } else if (prev.lastDir) {
+                    direction = prev.lastDir;
+                    dirSource = 'cached';
                 }
                 prev.lastDir = direction !== 'unknown' ? direction : prev.lastDir;
+            } else {
+                // FIRST sighting — no movement data yet. Bootstrap from GTFS.
+                if (directionId === 0) { direction = 'toward_glavni'; dirSource = 'gtfs_boot'; }
+                else if (directionId === 1) { direction = 'toward_vg'; dirSource = 'gtfs_boot'; }
             }
 
             const effectiveSpeed = avgSpeed > 5 ? avgSpeed : (speed > 5 ? speed : 25);
