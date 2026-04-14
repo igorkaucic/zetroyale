@@ -174,10 +174,10 @@
         /* ─── BUS MARKER ─────────────────────────────────────── */
         .bus-wrap{position:relative;cursor:pointer}
         .bus-dot{
-            width:32px;height:32px;border-radius:50%;
+            width:32px;height:32px;border-radius:6px;
             background:rgba(0,255,213,.1);border:2px solid var(--cyan);
             color:var(--cyan);
-            display:flex;align-items:center;justify-content:center;
+            display:flex;align-items:center;justify-content:center;font-size:16px;
             box-shadow:0 0 14px rgba(0,255,213,.4);transition:all .3s;
         }
         .bus-dot.tracked{
@@ -744,9 +744,9 @@ function updateBusMarkers() {
                 const tag = el.querySelector('.bus-tag');
                 if (dot) {
                     dot.className = `bus-dot${isTrk?' tracked':' ghost'}`;
-                    const rot = bus.direction === 'toward_vg' ? 180 : 0;
-                    const bSvg = dot.querySelector('svg');
-                    if (bSvg) bSvg.style.transform = `rotate(${rot}deg)`;
+                    const rot = bus.direction === 'toward_vg' ? 90 : -90;
+                    const bIco = dot.querySelector('.b-ico');
+                    if (bIco) bIco.style.transform = `rotate(${rot}deg)`;
                 }
                 if (tag) {
                     tag.className = `bus-tag${isTrk?' tracked':' ghost'}`;
@@ -760,15 +760,7 @@ function updateBusMarkers() {
                     html: `<div class="bus-wrap">
                         <div class="bus-tag${isTrk?' tracked':' ghost'}">${tagText}</div>
                         <div class="bus-dot${isTrk?' tracked':' ghost'}">
-                            <svg viewBox="0 0 40 80" width="12" height="24" style="transform:rotate(${bus.direction === 'toward_vg' ? 180 : 0}deg); transition: transform 0.5s;">
-                              <rect x="2" y="2" width="36" height="76" rx="6" fill="#04070a" stroke="currentColor" stroke-width="4"/>
-                              <rect x="6" y="8" width="28" height="12" rx="2" fill="currentColor" fill-opacity="0.5"/>
-                              <rect x="6" y="66" width="28" height="8" rx="2" fill="currentColor" fill-opacity="0.2"/>
-                              <circle cx="10" cy="4" r="2" fill="#fff"/>
-                              <circle cx="30" cy="4" r="2" fill="#fff"/>
-                              <circle cx="10" cy="76" r="2" fill="#ff2d2d"/>
-                              <circle cx="30" cy="76" r="2" fill="#ff2d2d"/>
-                            </svg>
+                            <span class="b-ico" style="display:inline-block; transform:rotate(${bus.direction === 'toward_vg' ? 90 : -90}deg); transition: transform 0.5s;">🚌</span>
                         </div>
                     </div>`,
                     iconSize: [32, 32], iconAnchor: [16, 16]
