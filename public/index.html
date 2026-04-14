@@ -472,9 +472,12 @@ if ('geolocation' in navigator) {
             }).addTo(map);
         }
 
-        // Phase detection based on distance from GLAVNI
-        const distFromGlavni = distM(userLat, userLon, extractionStop.lat, extractionStop.lon);
-        determinePhase(distFromGlavni);
+        // Phase detection based on distance
+        const distFromExtraction = distM(userLat, userLon, extractionStop.lat, extractionStop.lon);
+        determinePhase(distFromExtraction);
+
+        // Instantly react to GPS location (e.g. initial boot lag before GPS locks)
+        if (cachedBuses.length > 0) renderUpdate();
 
     }, err => console.warn('GPS:', err.message),
     { enableHighAccuracy: true, maximumAge: 8000 });
