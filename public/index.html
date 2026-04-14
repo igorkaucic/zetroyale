@@ -566,37 +566,18 @@ function updateRing(etaMinutes) {
 // ══════════════════════════════════════════════════
 //  BUS MARKERS & DATA
 // ══════════════════════════════════════════════════
-// Client-side bus position history for independent direction verification
-const clientBusHistory = {};
 
 function getBestBus() {
     if (cachedBuses.length === 0) return null;
 
-    // ── CLIENT GPS DIRECTION: track lat movement per bus ─────────
-    cachedBuses.forEach(b => {
-        const prev = clientBusHistory[b.id];
-        if (prev) {
-            const latDelta = b.lat - prev.lat;
-            if (Math.abs(latDelta) > 0.00003) {
-                b._moving = latDelta > 0 ? 'toward_glavni' : 'toward_vg';
-            } else {
-                b._moving = prev.dir || 'stopped';
-            }
-        } else {
-            b._moving = 'stopped';
-        }
-        clientBusHistory[b.id] = { lat: b.lat, dir: b._moving };
-    });
-
     // ══════════════════════════════════════════════════════════════
     // THE ONE RULE: ONLY buses heading TOWARD GLAVNI get selected.
     // EVERYTHING else is DEAD. No fallback. No exceptions.
+    // Pure server-side data, no client script guessing.
     // ══════════════════════════════════════════════════════════════
-    let candidates = cachedBuses.filter(b =>
-        b.direction === 'toward_glavni' || b._moving === 'toward_glavni'
-    );
+    let candidates = cachedBuses.filter(b => b.direction === 'toward_glavni');
 
-    // EXTRA: At work (to_home), bus must NOT have passed Oreškovićeva yet
+    // EXTRA: At work (to_home), bus must NOT have passed Otok yet
     // (must still be south of your stop so it can pick you up)
     if (commute === 'to_home') {
         candidates = candidates.filter(b => b.lat < STOPS.oresk.lat + 0.002);
@@ -620,8 +601,7 @@ function updateBusMarkers() {
         const isTrk = bus.id === trackedBusId;
 
         // Compute direction arrow: ↑ for Glavni, ↓ for VG, • for unknown
-        const activeDir = bus._moving !== 'stopped' ? bus._moving : bus.direction;
-        const dirArr = activeDir === 'toward_glavni' ? '↑' : (activeDir === 'toward_vg' ? '↓' : '•');
+        const dirArr = bus.direction === 'toward_glavni' ? '↑' : (bus.direction === 'toward_vg' ? '↓' : '•');
         const tagText = `${dirArr} 268`;
 
         if (busMarkers[bus.id]) {
