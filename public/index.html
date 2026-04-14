@@ -214,6 +214,9 @@
             background:#fff;border:3px solid var(--cyan);
             box-shadow:0 0 15px rgba(0,255,213,.8);position:relative;
         }
+        .minor-stop-wrap{
+            display:flex;align-items:center;justify-content:center;
+        }
         .minor-stop-dot{
             width:6px;height:6px;border-radius:50%;
             background:rgba(0,255,213,0.35);border:1px solid rgba(0,255,213,0.15);
@@ -521,7 +524,12 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
 // Paint all exact stops subtly and make them interactive
 ALL_STOPS_268.forEach(s => {
     L.marker([s.lat, s.lon], {
-        icon: L.divIcon({ className: 'minor-stop-dot', iconSize:[6,6] }),
+        icon: L.divIcon({ 
+            className: 'minor-stop-wrap', 
+            html: '<div class="minor-stop-dot"></div>',
+            iconSize:[36,36],
+            iconAnchor:[18,18]
+        }),
         interactive: true
     }).addTo(map).on('click', () => showStopIntel(s));
 });
