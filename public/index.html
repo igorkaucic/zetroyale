@@ -242,7 +242,7 @@
 <!-- MAIN CARD -->
 <div id="info-card" class="walk">
     <div id="card-label">NEXT STOP:</div>
-    <div id="card-stop">GLAVNI KOLODVOR</div>
+    <div id="card-stop" style="cursor:pointer;" onclick="showSchedule()">GLAVNI KOLODVOR <span>📅</span></div>
     <div id="tracked-id" style="padding:0 14px 2px;font-family:'Orbitron',monospace;font-size:9px;color:rgba(0,255,213,.5);letter-spacing:1.5px">// TARGET: ---</div>
     <div id="timer-label">EMERGENCY COUNTDOWN</div>
     <div id="big-timer">--:--</div>
@@ -252,6 +252,24 @@
         <div class="pred-cell"><div class="pred-lbl">Buffer</div><div class="pred-val" id="pred-buf">--m</div></div>
     </div>
     <div id="status-strip" class="safe">WAITING FOR DATA</div>
+</div>
+
+<!-- SCHEDULE MODAL -->
+<div id="schedule" style="position:fixed;top:60px;left:50%;transform:translateX(-50%);width:90%;max-width:340px;z-index:2002;background:rgba(4,7,12,.97);border:1px solid var(--cyan);border-top:2px solid var(--cyan);border-radius:5px;padding:16px;display:none;box-shadow:0 15px 40px rgba(0,0,0,.9);">
+    <div id="intel-hdr">
+        <span style="font-family:'Orbitron',monospace;font-size:11px;font-weight:800;color:var(--amber);letter-spacing:1.5px">// ZET 268 SCHEDULE</span>
+        <span id="intel-close" onclick="document.getElementById('schedule').style.display='none'">✕</span>
+    </div>
+    <div style="font-family:'Rajdhani',sans-serif; margin-top:10px; font-size:14px;">
+        <div style="color:var(--cyan);font-weight:700;margin-bottom:4px;text-transform:uppercase;">From Glavni Kolodvor (Southbound)</div>
+        <div style="font-size:12px;color:#aaa;margin-bottom:8px;">Drive time to Otok: ~15 mins</div>
+        <div id="sch-glavni" style="font-family:'Orbitron',monospace; font-size:16px; color:#fff; margin-bottom:15px;">--:--</div>
+
+        <div style="color:var(--amber);font-weight:700;margin-bottom:4px;text-transform:uppercase;">From Velika Gorica (Northbound)</div>
+        <div style="font-size:12px;color:#aaa;margin-bottom:8px;">Drive time to Otok: ~20 mins</div>
+        <div id="sch-vg" style="font-family:'Orbitron',monospace; font-size:16px; color:#fff;">--:--</div>
+    </div>
+    <div style="margin-top:16px;font-size:10px;color:rgba(255,255,255,0.3);text-align:center;">* Scheduled times. Real traffic will vary.</div>
 </div>
 
 <!-- NAV BAR -->
@@ -952,6 +970,51 @@ function showIntel(bus) {
         '? HEADING: UNKNOWN';
 }
 function closeIntel() { document.getElementById('intel').style.display = 'none'; }
+
+function showSchedule() {
+    document.getElementById('schedule').style.display = 'block';
+    const now = new Date();
+    const h = now.getHours();
+    const m = now.getMinutes();
+    
+    function getNextTimes(offsetMinutes) {
+        let times = [];
+        let curM = m;
+        let curH = h;
+        for(let i=0; i<3; i++) {
+            let nextM = Math.ceil(curM / 15) * 15 + offsetMinutes;
+            if (nextM === curM) nextM += 15;
+            let nh = curH;
+            if (nextM >= 60) {
+                nh = (nh + Math.floor(nextM / 60)) % 24;
+                nextM = nextM % 60;
+            }
+            times.push(`${String(nh).padStart(2,'0')}:${String(nextM).padStart(2,'0')}`);
+            curM = nextM; // advance basis
+        }
+        return times;
+    }
+
+    // Glavni departs every 15m (approx). +15m logic to Otok
+    const gDeps = getNextTimes(0);
+    let gHtml = gDeps.map(t => {
+        let [hh, mm] = t.split(':').map(Number);
+        mm += 15;
+        if(mm >= 60) { hh = (hh+1)%24; mm -= 60; }
+        return `${t} <span style="color:rgba(255,255,255,0.4);font-size:10px;">(ETA OTOK: ${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')})</span>`;
+    }).join('<br>');
+    document.getElementById('sch-glavni').innerHTML = gHtml;
+
+    // VG departs roughly at same freq. +20m to Otok
+    const vgDeps = getNextTimes(5); 
+    let vgHtml = vgDeps.map(t => {
+        let [hh, mm] = t.split(':').map(Number);
+        mm += 20;
+        if(mm >= 60) { hh = (hh+1)%24; mm -= 60; }
+        return `${t} <span style="color:rgba(255,255,255,0.4);font-size:10px;">(ETA OTOK: ${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')})</span>`;
+    }).join('<br>');
+    document.getElementById('sch-vg').innerHTML = vgHtml;
+}
 
 // ══════════════════════════════════════════════════
 //  NAV ACTIONS
