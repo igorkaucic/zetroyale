@@ -452,13 +452,11 @@ function setMode(newMode) {
     commute = newMode;
     if (newMode === 'at_glavni') {
         extractionStop = STOPS.glavni;
-        wantDirection = 'toward_vg';
         busEtaField = 'etaGlavni';
         busDistField = 'distGlavni';
         console.log('[MODE] Boarding at GLAVNI');
     } else {
         extractionStop = STOPS.oresk;
-        wantDirection = 'toward_glavni';
         busEtaField = 'etaOresk';
         busDistField = 'distOresk';
         console.log('[MODE] Boarding at OTOK');
@@ -715,19 +713,27 @@ function updateRing(etaMinutes) {
 function getBestBus() {
     if (cachedBuses.length === 0) return null;
 
+    let candidates = [];
+    
     // ══════════════════════════════════════════════════════════════
-    // THE ONE RULE: ONLY buses heading your way get selected.
+    // THE ROUTE ALGORITHM
     // ══════════════════════════════════════════════════════════════
-    let candidates = cachedBuses.filter(b => b.direction === wantDirection);
-
-    // STRICT KILL-LINES: The millisecond a bus departs your extraction stop, it is DEAD.
-    // Added 0.0005 deg (~50m) buffer for GPS drift at the stop.
     if (commute === 'at_otok') {
-        // Extracting at Otok. Bus heading NORTH. If lat > Otok, it has passed.
-        candidates = candidates.filter(b => b.lat <= STOPS.oresk.lat + 0.0005);
+        // You are boarding at Otok to go North.
+        // You only want buses heading North that haven't passed you yet.
+        candidates = cachedBuses.filter(b => 
+            b.direction === 'toward_glavni' && 
+            b.lat <= STOPS.oresk.lat + 0.0005
+        );
     } else {
-        // Extracting at Glavni. Bus heading SOUTH. If lat < Glavni, it has departed.
-        candidates = candidates.filter(b => b.lat >= STOPS.glavni.lat - 0.0005);
+        // You are boarding at Glavni to go South.
+        // You are at the absolute northern Terminus. 
+        // Track buses arriving from the South (inbound), OR parked at the platform waiting to depart.
+        candidates = cachedBuses.filter(b => {
+             if (b.direction === 'toward_glavni') return true; // Inbound! Keep tracking.
+             if (b.direction === 'toward_vg' && b.lat >= STOPS.glavni.lat - 0.0005) return true; // Parked! Keep tracking.
+             return false; // Already departed south. Dead.
+        });
     }
 
     if (candidates.length === 0) return null;
