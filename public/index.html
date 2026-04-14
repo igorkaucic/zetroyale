@@ -399,7 +399,11 @@ setInterval(() => {
 }, 1000);
 // ══════════════════════════════════════════════════
 const map = L.map('map', { zoomControl: false }).setView([45.788, 15.983], 13);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { 
+    maxZoom: 19,
+    keepBuffer: 24,           // Keep huge amount of tiles in memory out of view
+    updateWhenZooming: false  // Prevent grey flashing mid-zoom
+}).addTo(map);
 
 // Stop markers
 function makeStopMarker(stop) {
