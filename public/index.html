@@ -615,6 +615,11 @@ function updateBusMarkers() {
         currentIds.add(bus.id);
         const isTrk = bus.id === trackedBusId;
 
+        // Compute direction arrow: ↑ for Glavni, ↓ for VG, • for unknown
+        const activeDir = bus._moving !== 'stopped' ? bus._moving : bus.direction;
+        const dirArr = activeDir === 'toward_glavni' ? '↑' : (activeDir === 'toward_vg' ? '↓' : '•');
+        const tagText = `${dirArr} 268`;
+
         if (busMarkers[bus.id]) {
             busMarkers[bus.id].setLatLng([bus.lat, bus.lon]);
             const el = busMarkers[bus.id].getElement();
@@ -622,14 +627,17 @@ function updateBusMarkers() {
                 const dot = el.querySelector('.bus-dot');
                 const tag = el.querySelector('.bus-tag');
                 if (dot) dot.className = `bus-dot${isTrk?' tracked':' ghost'}`;
-                if (tag) tag.className = `bus-tag${isTrk?' tracked':' ghost'}`;
+                if (tag) {
+                    tag.className = `bus-tag${isTrk?' tracked':' ghost'}`;
+                    tag.textContent = tagText;
+                }
             }
         } else {
             const m = L.marker([bus.lat, bus.lon], {
                 icon: L.divIcon({
                     className: '',
                     html: `<div class="bus-wrap">
-                        <div class="bus-tag${isTrk?' tracked':' ghost'}">#268</div>
+                        <div class="bus-tag${isTrk?' tracked':' ghost'}">${tagText}</div>
                         <div class="bus-dot${isTrk?' tracked':' ghost'}">🚌</div>
                     </div>`,
                     iconSize: [32, 32], iconAnchor: [16, 16]
