@@ -1134,7 +1134,7 @@ function showIntel(bus) {
             
             let depStr = `${String(nextDepH).padStart(2,'0')}:${String(nextDepM).padStart(2,'0')}`;
             let termStr = destName.toUpperCase();
-            if (bufferMins >= 3) {
+            if (bufferMins >= 0) {
                 document.getElementById('i-sch-txt').innerHTML = `Arrives at ${termStr} at ${String(arrH).padStart(2,'0')}:${String(arrM).padStart(2,'0')}.<br>Makes next scheduled departure at <b>${depStr}</b> <span style="color:var(--green)">(YES)</span>`;
             } else {
                 document.getElementById('i-sch-txt').innerHTML = `Arrives at ${termStr} at ${String(arrH).padStart(2,'0')}:${String(arrM).padStart(2,'0')}.<br>Too late to make <b>${depStr}</b> departure <span style="color:var(--red)">(NO)</span>`;
