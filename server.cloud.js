@@ -18,9 +18,9 @@ const PORT = process.env.PORT || 3268;
 const ZET_URL = 'https://www.zet.hr/gtfs-rt-protobuf';
 
 const STOPS = {
-    oresk:   { name: 'Otok',    lat: 45.760914, lon: 15.984021 },
-    glavni:  { name: 'Glavni Kolodvor', lat: 45.80292, lon: 15.97724 },
-    vg:      { name: 'Velika Gorica', lat: 45.7115, lon: 16.0773 }
+    oresk:   { name: 'Otok',    lat: 45.7612593, lon: 15.9819733 },
+    glavni:  { name: 'Glavni Kolodvor', lat: 45.802815, lon: 15.9771445 },
+    vg:      { name: 'Velika Gorica', lat: 45.7113868, lon: 16.0769206 }
 };
 
 const positionHistory = {};
