@@ -263,11 +263,11 @@
     </div>
     <div style="font-family:'Rajdhani',sans-serif; margin-top:10px; font-size:14px;">
         <div style="color:var(--cyan);font-weight:700;margin-bottom:4px;text-transform:uppercase;">From Glavni Kolodvor (Southbound)</div>
-        <div style="font-size:12px;color:#aaa;margin-bottom:8px;">Drive time to Otok: ~15 mins</div>
+        <div id="sch-glavni-lbl" style="font-size:12px;color:#aaa;margin-bottom:8px;">Live drive time: ~15 mins</div>
         <div id="sch-glavni" style="font-family:'Orbitron',monospace; font-size:16px; color:#fff; margin-bottom:15px;">--:--</div>
 
         <div style="color:var(--amber);font-weight:700;margin-bottom:4px;text-transform:uppercase;">From Velika Gorica (Northbound)</div>
-        <div style="font-size:12px;color:#aaa;margin-bottom:8px;">Drive time to Otok: ~20 mins</div>
+        <div id="sch-vg-lbl" style="font-size:12px;color:#aaa;margin-bottom:8px;">Live drive time: ~22 mins</div>
         <div id="sch-vg" style="font-family:'Orbitron',monospace; font-size:16px; color:#fff;">--:--</div>
     </div>
     <div style="margin-top:16px;font-size:10px;color:rgba(255,255,255,0.3);text-align:center;">* Scheduled times. Real traffic will vary.</div>
@@ -1039,8 +1039,11 @@ function showSchedule() {
         return results.length ? results.join('<br>') : '--:--';
     }
 
-    document.getElementById('sch-glavni').innerHTML = getNext(ZET_268.glavni[dayType], 15);
-    document.getElementById('sch-vg').innerHTML = getNext(ZET_268.vg[dayType], 20);
+    document.getElementById('sch-glavni-lbl').textContent = `Live drive time avg: ~${window.latestTelemetry?.glavni_to_otok || 15} mins`;
+    document.getElementById('sch-vg-lbl').textContent = `Live drive time avg: ~${window.latestTelemetry?.vg_to_otok || 22} mins`;
+    
+    document.getElementById('sch-glavni').innerHTML = getNext(ZET_268.glavni[dayType], window.latestTelemetry?.glavni_to_otok || 15);
+    document.getElementById('sch-vg').innerHTML = getNext(ZET_268.vg[dayType], window.latestTelemetry?.vg_to_otok || 22);
 }
 
 // ══════════════════════════════════════════════════
@@ -1086,6 +1089,7 @@ async function fetchData() {
         const res = await fetch('/api/buses');
         const data = await res.json();
         cachedBuses = data.buses || [];
+        if (data.telemetry) window.latestTelemetry = data.telemetry;
 
         const ago = Math.round((Date.now() - data.lastUpdate) / 1000);
         // Update phase if GPS known

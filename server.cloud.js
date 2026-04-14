@@ -23,6 +23,31 @@ const STOPS = {
 };
 
 const positionHistory = {};
+const activeTrips = {};
+const telemetry = {
+    glavniToOtok: [], // { time, val }
+    vgToOtok: []
+};
+
+const TRIP_ZONES = {
+    GLAVNI: b => b.lat > 45.795,
+    OTOK: b => b.lat > 45.759 && b.lat < 45.762,
+    VG: b => b.lat < 45.730
+};
+
+function addTelemetry(type, mins) {
+    telemetry[type].push({ time: Date.now(), val: mins });
+    // purge older than 60m
+    const cutoff = Date.now() - 3600 * 1000;
+    telemetry[type] = telemetry[type].filter(t => t.time > cutoff);
+}
+
+function getAverage(type, defaultVal) {
+    const arr = telemetry[type];
+    if (!arr.length) return defaultVal;
+    return Math.round(arr.reduce((sum, t) => sum + t.val, 0) / arr.length);
+}
+
 let cachedBuses = [];
 let lastFetchTime = 0;
 let isFetching = false;
@@ -90,10 +115,40 @@ async function fetchBuses() {
                     dirSource = 'cached';
                 }
                 
+                // TELEMETRY TRACKING
+                let currentZone = null;
+                if (TRIP_ZONES.GLAVNI({lat, lon})) currentZone = 'GLAVNI';
+                else if (TRIP_ZONES.OTOK({lat, lon})) currentZone = 'OTOK';
+                else if (TRIP_ZONES.VG({lat, lon})) currentZone = 'VG';
+                
+                if (prev.zone === 'GLAVNI' && currentZone !== 'GLAVNI') {
+                    activeTrips[id] = { startZone: 'GLAVNI', startTime: now };
+                } else if (prev.zone === 'VG' && currentZone !== 'VG') {
+                    activeTrips[id] = { startZone: 'VG', startTime: now };
+                }
+                
+                // Arriving at Otok
+                if (prev.zone !== 'OTOK' && currentZone === 'OTOK') {
+                    if (activeTrips[id]) {
+                        const elapsedMins = (now - activeTrips[id].startTime) / 60000;
+                        if (elapsedMins > 5 && elapsedMins < 45) { // sanity
+                            if (activeTrips[id].startZone === 'GLAVNI') addTelemetry('glavniToOtok', elapsedMins);
+                            if (activeTrips[id].startZone === 'VG') addTelemetry('vgToOtok', elapsedMins);
+                            console.log(`[TELEMETRY] Bus ${id.slice(-5)} drove ${activeTrips[id].startZone} -> OTOK in ${elapsedMins.toFixed(1)} mins`);
+                        }
+                        delete activeTrips[id];
+                    }
+                }
+                
                 prev.lastDir = direction !== 'unknown' ? direction : prev.lastDir;
-                prev.lat = lat; prev.lon = lon; prev.time = now; // Update history NOW
+                prev.lat = lat; prev.lon = lon; prev.time = now; prev.zone = currentZone;
             } else {
-                positionHistory[id] = { lat, lon, time: now, speeds: [] };
+                let initialZone = null;
+                if (TRIP_ZONES.GLAVNI({lat, lon})) initialZone = 'GLAVNI';
+                else if (TRIP_ZONES.OTOK({lat, lon})) initialZone = 'OTOK';
+                else if (TRIP_ZONES.VG({lat, lon})) initialZone = 'VG';
+                
+                positionHistory[id] = { lat, lon, time: now, speeds: [], zone: initialZone };
                 // FIRST sighting — no movement data yet. Bootstrap from GTFS.
                 if (directionId === 0) { direction = 'toward_glavni'; dirSource = 'gtfs_boot'; }
                 else if (directionId === 1) { direction = 'toward_vg'; dirSource = 'gtfs_boot'; }
@@ -132,7 +187,15 @@ async function fetchBuses() {
 }
 
 app.get('/api/buses', (_req, res) => {
-    res.json({ buses: cachedBuses, stops: STOPS, lastUpdate: lastFetchTime });
+    res.json({
+        buses: cachedBuses, 
+        stops: STOPS, 
+        lastUpdate: lastFetchTime,
+        telemetry: {
+            glavni_to_otok: getAverage('glavniToOtok', 15),
+            vg_to_otok: getAverage('vgToOtok', 22)
+        }
+    });
 });
 
 // Plain HTTP — Render handles HTTPS automatically
