@@ -241,8 +241,13 @@
 
 <!-- MAIN CARD -->
 <div id="info-card" class="walk">
-    <div id="card-label">NEXT STOP:</div>
-    <div id="card-stop" style="cursor:pointer;" onclick="showSchedule()">GLAVNI KOLODVOR <span>📅</span></div>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div id="card-label">NEXT STOP:</div>
+        <div onclick="showSchedule()" style="background:rgba(0,255,213,0.1); border:1px solid rgba(0,255,213,0.3); color:var(--cyan); padding:2px 8px; border-radius:4px; font-family:'Orbitron',monospace; font-size:9px; font-weight:800; cursor:pointer; letter-spacing:1px; flex-shrink: 0;">
+            [ TIMETABLE 📅 ]
+        </div>
+    </div>
+    <div id="card-stop">GLAVNI KOLODVOR</div>
     <div id="tracked-id" style="padding:0 14px 2px;font-family:'Orbitron',monospace;font-size:9px;color:rgba(0,255,213,.5);letter-spacing:1.5px">// TARGET: ---</div>
     <div id="timer-label">EMERGENCY COUNTDOWN</div>
     <div id="big-timer">--:--</div>
