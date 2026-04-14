@@ -325,31 +325,42 @@ let currentPhase = PHASE.WALK;
 
 // ── Auto-detect commute direction from GPS ──────────────────
 function detectCommute(lat, lon) {
-    const dHome = map.distance([lat, lon], [HOME.lat, HOME.lon]);
-    const dWork = map.distance([lat, lon], [WORK.lat, WORK.lon]);
+    const dHome   = map.distance([lat, lon], [HOME.lat, HOME.lon]);
+    const dWork   = map.distance([lat, lon], [WORK.lat, WORK.lon]);
+    const dGlavni = map.distance([lat, lon], [STOPS.glavni.lat, STOPS.glavni.lon]);
 
-    if (dHome < dWork) {
-        // Closer to home → heading to work
-        // You board at Glavni. The bus you want is currently finishing its inbound route (driving North to Glavni).
+    // RULE 1: If you're AT Glavni → you're going TO WORK. Period.
+    if (dGlavni < 800) {
         if (commute !== 'to_work') {
             commute = 'to_work';
             extractionStop = STOPS.glavni;
-            wantDirection = 'toward_glavni'; // It's coming to Glavni before it turns around
+            wantDirection = 'toward_glavni';
             busEtaField = 'etaGlavni';
             busDistField = 'distGlavni';
-            console.log('[MODE] Near HOME → TO WORK → tracking inbound bus toward Glavni');
+            console.log('[MODE] AT GLAVNI → TO WORK');
+        }
+        return;
+    }
+
+    // RULE 2: Closer to home → heading to work
+    if (dHome < dWork) {
+        if (commute !== 'to_work') {
+            commute = 'to_work';
+            extractionStop = STOPS.glavni;
+            wantDirection = 'toward_glavni';
+            busEtaField = 'etaGlavni';
+            busDistField = 'distGlavni';
+            console.log('[MODE] Near HOME → TO WORK');
         }
     } else {
-        // Closer to work → heading home
-        // You board at Oreškovićeva. The bus is also driving North to Glavni.
-        // We only track buses SOUTH of Oreškovićeva.
+        // RULE 3: Closer to work → heading home
         if (commute !== 'to_home') {
             commute = 'to_home';
             extractionStop = STOPS.oresk;
             wantDirection = 'toward_glavni';
             busEtaField = 'etaOresk';
             busDistField = 'distOresk';
-            console.log('[MODE] Near WORK → TO HOME → track northbound at Oreškovićeva');
+            console.log('[MODE] Near WORK → TO HOME');
         }
     }
 }
