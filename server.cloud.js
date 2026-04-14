@@ -67,6 +67,11 @@ async function fetchBuses() {
 
             let speed = 0, avgSpeed = 0;
             const prev = positionHistory[id];
+            
+            // DIRECTION: GPS movement is king. GTFS directionId only used as bootstrap.
+            let direction = 'unknown';
+            let dirSource = 'new';
+            
             if (prev) {
                 const dist = haversine(prev.lat, prev.lon, lat, lon);
                 const dtHours = (now - prev.time) / 3600000;
@@ -74,15 +79,8 @@ async function fetchBuses() {
                 prev.speeds.push(speed);
                 if (prev.speeds.length > 12) prev.speeds.shift();
                 avgSpeed = prev.speeds.reduce((a, b) => a + b, 0) / prev.speeds.length;
-                prev.lat = lat; prev.lon = lon; prev.time = now;
-            } else {
-                positionHistory[id] = { lat, lon, time: now, speeds: [] };
-            }
 
-            // DIRECTION: GPS movement is king. GTFS directionId only used as bootstrap.
-            let direction = 'unknown';
-            let dirSource = 'new';
-            if (prev) {
+                // DIRECTION CHECK MUST HAPPEN BEFORE OVERWRITING prev.lat
                 const latDelta = lat - prev.lat;
                 if (Math.abs(latDelta) > 0.00003) { // ~3.3m movement
                     direction = latDelta > 0 ? 'toward_glavni' : 'toward_vg';
@@ -91,8 +89,11 @@ async function fetchBuses() {
                     direction = prev.lastDir;
                     dirSource = 'cached';
                 }
+                
                 prev.lastDir = direction !== 'unknown' ? direction : prev.lastDir;
+                prev.lat = lat; prev.lon = lon; prev.time = now; // Update history NOW
             } else {
+                positionHistory[id] = { lat, lon, time: now, speeds: [] };
                 // FIRST sighting — no movement data yet. Bootstrap from GTFS.
                 if (directionId === 0) { direction = 'toward_glavni'; dirSource = 'gtfs_boot'; }
                 else if (directionId === 1) { direction = 'toward_vg'; dirSource = 'gtfs_boot'; }

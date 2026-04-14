@@ -1019,6 +1019,11 @@ try { if (Notification?.permission === 'default') Notification.requestPermission
 updatePhaseUI();
 fetchData();
 setInterval(fetchData, 10000);
+
+// Immediate refresh on return to app
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') fetchData();
+});
 </script>
 </body>
 </html>
