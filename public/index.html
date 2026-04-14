@@ -519,11 +519,46 @@ setInterval(() => {
     }
 }, 1000);
 // ══════════════════════════════════════════════════
-const map = L.map('map', {zoomControl: false, attributionControl: false}).setView([45.7600, 15.9800], 13);
+const map = L.map('map', {
+    zoomControl: false, 
+    attributionControl: false,
+    zoomSnap: 0
+}).setView([45.7600, 15.9800], 13);
+
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     maxZoom: 19
 }).addTo(map);
 
+// TACTICAL ZOOM (DOUBLE-TAP-DRAG)
+let lastTap = 0, isTapDrag = false, startY = 0, startZ = 0;
+map.getContainer().addEventListener('touchstart', e => {
+    if (e.touches.length > 1) { isTapDrag = false; return; }
+    const now = Date.now();
+    if (now - lastTap < 350) {
+        isTapDrag = true;
+        startY = e.touches[0].clientY;
+        startZ = map.getZoom();
+        map.dragging.disable();
+    }
+    lastTap = now;
+}, {passive:true});
+
+// Use capture phase on document to intercept native scroll
+document.addEventListener('touchmove', e => {
+    if (isTapDrag && e.touches.length === 1) {
+        e.preventDefault();
+        const y = e.touches[0].clientY;
+        // Drag DOWN (positive y delta) = zoom OUT, Drag UP = zoom IN
+        map.setZoom(startZ - ((y - startY) / 100), {animate: false});
+    }
+}, {passive:false});
+
+document.addEventListener('touchend', () => {
+    if (isTapDrag) {
+        isTapDrag = false;
+        map.dragging.enable();
+    }
+});
 // Paint all exact stops subtly and make them interactive
 ALL_STOPS_268.forEach(s => {
     L.marker([s.lat, s.lon], {
