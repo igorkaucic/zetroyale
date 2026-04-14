@@ -80,22 +80,19 @@ async function fetchBuses() {
                 positionHistory[id] = { lat, lon, time: now, speeds: [] };
             }
 
+            // DIRECTION: ONLY trust actual GPS movement. ZET's directionId is UNRELIABLE.
             let direction = 'unknown';
-            let dirSource = 'none';
-            if (directionId !== null) {
-                direction = directionId === 0 ? 'toward_glavni' : 'toward_vg';
-                dirSource = `gtfs_dirId=${directionId}`;
-            }
-            if (direction === 'unknown' && bearing) {
-                if (bearing > 315 || bearing < 45) { direction = 'toward_glavni'; dirSource = `bearing=${bearing}`; }
-                else if (bearing > 135 && bearing < 225) { direction = 'toward_vg'; dirSource = `bearing=${bearing}`; }
-            }
-            if (prev && speed > 3) {
+            let dirSource = 'standing';
+            if (prev) {
                 const latDelta = lat - prev.lat;
-                if (Math.abs(latDelta) > 0.0002) {
+                if (Math.abs(latDelta) > 0.00005) { // ~5.5m movement
                     direction = latDelta > 0 ? 'toward_glavni' : 'toward_vg';
-                    dirSource = `latDelta=${latDelta.toFixed(5)}`;
+                    dirSource = `latDelta=${latDelta.toFixed(6)}`;
+                } else {
+                    // Bus barely moved — use last known direction if stored
+                    if (prev.lastDir) { direction = prev.lastDir; dirSource = 'prev_cached'; }
                 }
+                prev.lastDir = direction !== 'unknown' ? direction : prev.lastDir;
             }
 
             const effectiveSpeed = avgSpeed > 5 ? avgSpeed : (speed > 5 ? speed : 25);
