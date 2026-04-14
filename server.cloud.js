@@ -25,7 +25,6 @@ const STOPS = {
 const positionHistory = {};
 let cachedBuses = [];
 let lastFetchTime = 0;
-let lastClientReqTime = 0;
 let isFetching = false;
 
 function haversine(lat1, lon1, lat2, lon2) {
@@ -125,22 +124,17 @@ async function fetchBuses() {
     }
 }
 
-app.get('/api/buses', async (_req, res) => {
-    lastClientReqTime = Date.now();
-    if (Date.now() - lastFetchTime > 5000 && !isFetching) {
-        await fetchBuses();
-    }
+app.get('/api/buses', (_req, res) => {
     res.json({ buses: cachedBuses, stops: STOPS, lastUpdate: lastFetchTime });
 });
 
 // Plain HTTP — Render handles HTTPS automatically
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n🚀 ZET ROYALE live on port ${PORT}\n`);
+    fetchBuses(); // immediate first fetch on boot
 });
 
-// Smart fetch loop
+// Always poll ZET every 12s — data ready the instant you open the app
 setInterval(() => {
-    if (Date.now() - lastClientReqTime < 30000 && !isFetching) {
-        fetchBuses();
-    }
-}, 10000);
+    if (!isFetching) fetchBuses();
+}, 12000);
