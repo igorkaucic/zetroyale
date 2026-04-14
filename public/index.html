@@ -314,6 +314,24 @@
     </div>
 </div>
 
+<!-- STOP INTEL MODAL -->
+<div id="stop-intel" style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);width:90%;max-width:340px;z-index:2002;background:rgba(4,7,12,.97);border:1px solid var(--cyan);border-radius:4px;padding:12px;display:none;box-shadow:0 0 25px rgba(0,0,0,.9);">
+    <div id="intel-hdr">
+        <span id="st-intel-name" style="font-family:'Orbitron',monospace;font-size:12px;font-weight:700;color:var(--cyan);">// STOP</span>
+        <span onclick="document.getElementById('stop-intel').style.display='none'" style="cursor:pointer;color:var(--cyan);font-weight:900;">✕</span>
+    </div>
+    <div style="margin-top:10px;font-family:'Rajdhani',sans-serif;font-size:13px;color:#fff;">
+        <div style="margin-bottom:8px;">
+            <div style="color:var(--amber);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">SOUTHBOUND (To V. Gorica)</div>
+            <div id="st-sb-txt" style="font-size:15px;">--</div>
+        </div>
+        <div>
+            <div style="color:var(--amber);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">NORTHBOUND (To Glavni)</div>
+            <div id="st-nb-txt" style="font-size:15px;">--</div>
+        </div>
+    </div>
+</div>
+
 <!-- TOAST -->
 <div id="toast">⚠ EXTRACTION IN 5 MIN — MOVE NOW ⚠</div>
 
@@ -505,12 +523,12 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     maxZoom: 19
 }).addTo(map);
 
-// Paint all exact stops subtly
+// Paint all exact stops subtly and make them interactive
 ALL_STOPS_268.forEach(s => {
     L.marker([s.lat, s.lon], {
         icon: L.divIcon({ className: 'minor-stop-dot', iconSize:[6,6] }),
-        interactive: false
-    }).addTo(map);
+        interactive: true
+    }).addTo(map).on('click', () => showStopIntel(s));
 });
 
 // Stop markers
@@ -1134,6 +1152,39 @@ function showIntel(bus) {
     }
 }
 function closeIntel() { document.getElementById('intel').style.display = 'none'; }
+
+function showStopIntel(stop) {
+    document.getElementById('stop-intel').style.display = 'block';
+    document.getElementById('st-intel-name').textContent = `// STOP: ${stop.name.toUpperCase()}`;
+
+    // Dist & ETA helpers
+    const calc = (b) => {
+        let dist = distM(b.lat, b.lon, stop.lat, stop.lon) / 1000;
+        let speed = Math.max(b.speed || 25, 10);
+        let eta = Math.ceil((dist / speed) * 60);
+        return { dist, speed: b.speed || 0, eta, id: b.id.slice(-4) }; // extract slice of vehicle id
+    };
+
+    // Find closest southbound bus (b.lat > stop.lat)
+    let sbCands = cachedBuses.filter(b => b.direction === 'toward_vg' && b.lat > stop.lat - 0.0005);
+    sbCands.sort((a, b) => a.lat - b.lat); 
+    if(sbCands.length > 0) {
+        let r = calc(sbCands[0]);
+        document.getElementById('st-sb-txt').innerHTML = `Bus <b style="color:var(--cyan)">#${r.id}</b> arriving in <b>~${r.eta} MIN</b> <span style="font-size:11px;color:#aaa;">(${r.dist.toFixed(1)}km at ${r.speed}km/h)</span>`;
+    } else {
+        document.getElementById('st-sb-txt').textContent = "No active buses approaching.";
+    }
+
+    // Find closest northbound bus (b.lat < stop.lat)
+    let nbCands = cachedBuses.filter(b => b.direction === 'toward_glavni' && b.lat < stop.lat + 0.0005);
+    nbCands.sort((a, b) => b.lat - a.lat); 
+    if(nbCands.length > 0) {
+        let r = calc(nbCands[0]);
+        document.getElementById('st-nb-txt').innerHTML = `Bus <b style="color:var(--cyan)">#${r.id}</b> arriving in <b>~${r.eta} MIN</b> <span style="font-size:11px;color:#aaa;">(${r.dist.toFixed(1)}km at ${r.speed}km/h)</span>`;
+    } else {
+        document.getElementById('st-nb-txt').textContent = "No active buses approaching.";
+    }
+}
 
 function showSchedule() {
     document.getElementById('schedule').style.display = 'block';
