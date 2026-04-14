@@ -577,10 +577,13 @@ function getBestBus() {
     // ══════════════════════════════════════════════════════════════
     let candidates = cachedBuses.filter(b => b.direction === 'toward_glavni');
 
-    // EXTRA: At work (to_home), bus must NOT have passed Otok yet
-    // (must still be south of your stop so it can pick you up)
+    // STRICT KILL-LINES: The millisecond a bus passes your extraction stop, it is DEAD to you.
     if (commute === 'to_home') {
-        candidates = candidates.filter(b => b.lat < STOPS.oresk.lat + 0.002);
+        // At work, extracting at Otok. Pass Otok lat = dead.
+        candidates = candidates.filter(b => b.lat < STOPS.oresk.lat + 0.0002);
+    } else {
+        // At home, extracting at Glavni. Pass Glavni lat = dead.
+        candidates = candidates.filter(b => b.lat < STOPS.glavni.lat + 0.0002);
     }
 
     if (candidates.length === 0) return null;

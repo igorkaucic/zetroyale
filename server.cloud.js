@@ -99,7 +99,9 @@ async function fetchBuses() {
                 else if (directionId === 1) { direction = 'toward_vg'; dirSource = 'gtfs_boot'; }
             }
 
-            const effectiveSpeed = avgSpeed > 5 ? avgSpeed : (speed > 5 ? speed : 25);
+            // Smooth ETA: bus average speed, clamped to a minimum of 24 km/h
+            // Prevents ETA from skyrocketing to 5 minutes just because it hit a red light.
+            const effectiveSpeed = Math.max(avgSpeed || 0, 24);
             const roadFactor = 1.35;
             const distOresk   = haversine(lat, lon, STOPS.oresk.lat,  STOPS.oresk.lon);
             const distGlavni  = haversine(lat, lon, STOPS.glavni.lat, STOPS.glavni.lon);
