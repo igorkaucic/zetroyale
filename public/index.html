@@ -417,19 +417,8 @@ const ZET_268 = {
     }
 };
 
-// ── User's fixed locations ──────────────────────────────────
-const HOME = { name: 'HOME',  lat: 45.8159, lon: 15.8763 }; // Hrvatskih iseljenika 5
-const WORK = { name: 'WORK',  lat: 45.760914, lon: 15.984021 }; // Oreškovićeva / Otok
-
 // ── Dynamic mode: detected from GPS ─────────────────────────
-// Near HOME → going to WORK:
-//   Take bus at Glavni heading toward_vg (southbound to Oreškovićeva)
-//   Extraction = Glavni (where you board)
-// Near WORK → going HOME:
-//   Take bus at Oreškovićeva heading toward_glavni (northbound to Glavni, then train)
-//   Extraction = Oreškovićeva (where you board)
-//   Only track buses SOUTH of Oreškovićeva (haven't passed your stop yet)
-let commute = 'to_work';
+let commute = 'at_glavni';
 let extractionStop = STOPS.glavni;
 let wantDirection = 'toward_vg'; // which direction buses should be heading
 let busEtaField = 'etaGlavni';  // which ETA to use
@@ -443,46 +432,36 @@ let currentPhase = PHASE.WALK;
 
 // ── Auto-detect commute direction from GPS ──────────────────
 function detectCommute(lat, lon) {
-    // 0. Manual Override for Desktop testing without GPS
     const params = new URLSearchParams(window.location.search);
     const forceMode = params.get('force');
-    if (forceMode === 'home') { setMode('to_home'); return; }
-    if (forceMode === 'work') { setMode('to_work'); return; }
+    if (forceMode === 'glavni') { setMode('at_glavni'); return; }
+    if (forceMode === 'otok') { setMode('at_otok'); return; }
 
-    const dHome   = map.distance([lat, lon], [HOME.lat, HOME.lon]);
-    const dWork   = map.distance([lat, lon], [WORK.lat, WORK.lon]);
+    const dOresk  = map.distance([lat, lon], [STOPS.oresk.lat, STOPS.oresk.lon]);
     const dGlavni = map.distance([lat, lon], [STOPS.glavni.lat, STOPS.glavni.lon]);
 
-    // RULE 1: If you're physically AT Glavni (within 250m) → you're going TO WORK.
-    if (dGlavni < 250) {
-        setMode('to_work');
-        return;
-    }
-
-    // RULE 2: Closer to home → heading to work
-    if (dHome < dWork) {
-        setMode('to_work');
+    if (dGlavni < dOresk) {
+        setMode('at_glavni');
     } else {
-        // RULE 3: Closer to work → heading home
-        setMode('to_home');
+        setMode('at_otok');
     }
 }
 
 function setMode(newMode) {
     if (commute === newMode) return;
     commute = newMode;
-    if (newMode === 'to_work') {
+    if (newMode === 'at_glavni') {
         extractionStop = STOPS.glavni;
-        wantDirection = 'toward_glavni';
+        wantDirection = 'toward_vg';
         busEtaField = 'etaGlavni';
         busDistField = 'distGlavni';
-        console.log('[MODE] TO WORK → extracting at GLAVNI');
+        console.log('[MODE] Boarding at GLAVNI');
     } else {
         extractionStop = STOPS.oresk;
         wantDirection = 'toward_glavni';
         busEtaField = 'etaOresk';
         busDistField = 'distOresk';
-        console.log('[MODE] TO HOME → extracting at OTOK');
+        console.log('[MODE] Boarding at OTOK');
     }
 }
 
@@ -743,7 +722,7 @@ function getBestBus() {
 
     // STRICT KILL-LINES: The millisecond a bus departs your extraction stop, it is DEAD.
     // Added 0.0005 deg (~50m) buffer for GPS drift at the stop.
-    if (commute === 'to_home') {
+    if (commute === 'at_otok') {
         // Extracting at Otok. Bus heading NORTH. If lat > Otok, it has passed.
         candidates = candidates.filter(b => b.lat <= STOPS.oresk.lat + 0.0005);
     } else {
