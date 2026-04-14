@@ -81,17 +81,21 @@ async function fetchBuses() {
             }
 
             let direction = 'unknown';
+            let dirSource = 'none';
             if (directionId !== null) {
                 direction = directionId === 0 ? 'toward_glavni' : 'toward_vg';
+                dirSource = `gtfs_dirId=${directionId}`;
             }
             if (direction === 'unknown' && bearing) {
-                if (bearing > 315 || bearing < 45) direction = 'toward_glavni';
-                else if (bearing > 135 && bearing < 225) direction = 'toward_vg';
+                if (bearing > 315 || bearing < 45) { direction = 'toward_glavni'; dirSource = `bearing=${bearing}`; }
+                else if (bearing > 135 && bearing < 225) { direction = 'toward_vg'; dirSource = `bearing=${bearing}`; }
             }
             if (prev && speed > 3) {
                 const latDelta = lat - prev.lat;
-                if (Math.abs(latDelta) > 0.0002)
+                if (Math.abs(latDelta) > 0.0002) {
                     direction = latDelta > 0 ? 'toward_glavni' : 'toward_vg';
+                    dirSource = `latDelta=${latDelta.toFixed(5)}`;
+                }
             }
 
             const effectiveSpeed = avgSpeed > 5 ? avgSpeed : (speed > 5 ? speed : 25);
@@ -100,6 +104,8 @@ async function fetchBuses() {
             const distGlavni  = haversine(lat, lon, STOPS.glavni.lat, STOPS.glavni.lon);
             const etaOresk    = Math.round((distOresk  * roadFactor) / effectiveSpeed * 60);
             const etaGlavni   = Math.round((distGlavni * roadFactor) / effectiveSpeed * 60);
+
+            console.log(`  [BUS] ${id.slice(-8)} | lat=${lat.toFixed(4)} | dir=${direction} (${dirSource}) | spd=${Math.round(speed)} | dGl=${distGlavni.toFixed(2)}km`);
 
             buses.push({
                 id, routeId, lat, lon, bearing,

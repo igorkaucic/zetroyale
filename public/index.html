@@ -651,7 +651,14 @@ function updatePhaseUI() {
 function renderUpdate() {
     // Always show ALL buses on map regardless of tracking state
     updateBusMarkers();
-    console.log(`[RENDER] ${cachedBuses.length} buses on map, commute=${commute}, wantDir=${wantDirection}`);
+
+    // DEBUG: Log every bus with full details
+    console.log(`\n[RENDER] commute=${commute} | wantDir=${wantDirection} | buses=${cachedBuses.length}`);
+    cachedBuses.forEach(b => {
+        const killed = (commute === 'to_work' && b.direction === 'toward_vg') ||
+                       (commute === 'to_home' && b.lat > extractionStop.lat);
+        console.log(`  ${killed ? '💀' : '✅'} ${b.id.slice(-8)} | lat=${b.lat.toFixed(4)} | dir=${b.direction} | dirId=${b.directionId} | spd=${b.speed} | dGl=${b.distGlavni}km`);
+    });
 
     const best = getBestBus();
     if (!best) {
@@ -660,8 +667,10 @@ function renderUpdate() {
         document.getElementById('status-strip').className = 'safe';
         document.getElementById('status-strip').textContent = `NO MATCHING BUS (${cachedBuses.length} in sector)`;
         document.getElementById('tracked-id').textContent = '// TARGET: NONE';
+        console.log(`  🎯 TRACKED: NONE`);
         return;
     }
+    console.log(`  🎯 TRACKED: ${best.id.slice(-8)} | dir=${best.direction} | lat=${best.lat.toFixed(4)}`);
 
     // Detect silent bus swap
     if (trackedBusId && trackedBusId !== best.id) {
