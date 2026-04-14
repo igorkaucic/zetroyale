@@ -993,7 +993,7 @@ async function fetchData() {
 // ══════════════════════════════════════════════════
 //  BOOT
 // ══════════════════════════════════════════════════
-if (Notification?.permission === 'default') Notification.requestPermission();
+try { if (Notification?.permission === 'default') Notification.requestPermission(); } catch(e) {}
 updatePhaseUI();
 fetchData();
 setInterval(fetchData, 10000);
