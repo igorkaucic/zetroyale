@@ -571,19 +571,23 @@ function getBestBus() {
 
     // ══════════════════════════════════════════════════════════════
     // THE ONE RULE: ONLY buses heading TOWARD GLAVNI get selected.
-    // If server says toward_glavni OR client GPS says toward_glavni = alive.
     // EVERYTHING else is DEAD. No fallback. No exceptions.
-    // If ALL are heading away or stopped = return null. Show nothing.
     // ══════════════════════════════════════════════════════════════
-    const headingToGlavni = cachedBuses.filter(b =>
+    let candidates = cachedBuses.filter(b =>
         b.direction === 'toward_glavni' || b._moving === 'toward_glavni'
     );
 
-    if (headingToGlavni.length === 0) return null;
+    // EXTRA: At work (to_home), bus must NOT have passed Oreškovićeva yet
+    // (must still be south of your stop so it can pick you up)
+    if (commute === 'to_home') {
+        candidates = candidates.filter(b => b.lat < STOPS.oresk.lat + 0.002);
+    }
+
+    if (candidates.length === 0) return null;
 
     // Pick closest by ETA to extraction stop
-    headingToGlavni.sort((a, b) => a[busEtaField] - b[busEtaField]);
-    return headingToGlavni[0];
+    candidates.sort((a, b) => a[busEtaField] - b[busEtaField]);
+    return candidates[0];
 }
 
 
