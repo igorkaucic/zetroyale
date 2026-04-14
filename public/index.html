@@ -330,19 +330,19 @@ function detectCommute(lat, lon) {
 
     if (dHome < dWork) {
         // Closer to home → heading to work
-        // Board bus at Glavni going south (toward_vg)
+        // You board at Glavni. The bus you want is currently finishing its inbound route (driving North to Glavni).
         if (commute !== 'to_work') {
             commute = 'to_work';
             extractionStop = STOPS.glavni;
-            wantDirection = 'toward_vg';
+            wantDirection = 'toward_glavni'; // It's coming to Glavni before it turns around
             busEtaField = 'etaGlavni';
             busDistField = 'distGlavni';
-            console.log('[MODE] Near HOME → TO WORK → track southbound at Glavni');
+            console.log('[MODE] Near HOME → TO WORK → tracking inbound bus toward Glavni');
         }
     } else {
         // Closer to work → heading home
-        // Board bus at Oreškovićeva going north (toward_glavni)
-        // Only buses that haven't passed Oreškovićeva yet
+        // You board at Oreškovićeva. The bus is also driving North to Glavni.
+        // We only track buses SOUTH of Oreškovićeva.
         if (commute !== 'to_home') {
             commute = 'to_home';
             extractionStop = STOPS.oresk;
@@ -552,24 +552,32 @@ let busMarkers = {};
 function getBestBus() {
     if (cachedBuses.length === 0) return null;
 
-    // PRIORITY 1: Bus AT extraction stop (within 500m) AND heading the right way
-    const atStation = cachedBuses.filter(b =>
-        b[busDistField] < 0.5 &&
-        (b.direction === wantDirection || b.direction === 'unknown')
-    );
+    // PRIORITY 1: Bus AT extraction stop (within 500m)
+    // If going HOME we catch at Oreškovićeva going North (toward_glavni).
+    // If going WORK we catch at Glavni going South (toward_vg) or just arriving (toward_glavni).
+    const atStation = cachedBuses.filter(b => {
+        if (b[busDistField] >= 0.5) return false;
+        if (commute === 'to_home') return b.direction === 'toward_glavni' || b.direction === 'unknown';
+        // When going to work (boarding at Glavni), the bus could be arriving (toward_glavni) or waiting to leave (toward_vg)
+        if (commute === 'to_work') return true; 
+        return false;
+    });
+
     if (atStation.length > 0) {
         atStation.sort((a, b) => a[busDistField] - b[busDistField]);
         return atStation[0];
     }
 
     // PRIORITY 2: Bus heading in the RIGHT direction, not yet at station
-    let inbound = cachedBuses.filter(b =>
-        b.direction === wantDirection || b.direction === 'unknown'
-    );
+    let inbound = cachedBuses.filter(b => b.direction === wantDirection || b.direction === 'unknown');
 
     // Extra filter for TO_HOME: bus must be SOUTH of Oreškovićeva
     if (commute === 'to_home') {
         inbound = inbound.filter(b => b.lat < STOPS.oresk.lat);
+    }
+    // Extra filter for TO_WORK: bus must be SOUTH of Glavni (all are, but just in case)
+    if (commute === 'to_work') {
+        inbound = inbound.filter(b => b.lat < STOPS.glavni.lat);
     }
 
     if (inbound.length > 0) {
@@ -577,7 +585,7 @@ function getBestBus() {
         return inbound[0];
     }
 
-    // PRIORITY 3: Fallback — closest bus in correct direction (any distance)
+    // PRIORITY 3: Fallback — closest bus heading to extraction stop
     const anyCorrect = cachedBuses.filter(b => b.direction === wantDirection);
     if (anyCorrect.length > 0) {
         anyCorrect.sort((a, b) => a[busEtaField] - b[busEtaField]);
