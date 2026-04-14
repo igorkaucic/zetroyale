@@ -592,19 +592,18 @@ function getBestBus() {
     if (cachedBuses.length === 0) return null;
 
     // ══════════════════════════════════════════════════════════════
-    // THE ONE RULE: ONLY buses heading TOWARD GLAVNI get selected.
-    // EVERYTHING else is DEAD. No fallback. No exceptions.
-    // Pure server-side data, no client script guessing.
+    // THE ONE RULE: ONLY buses heading your way get selected.
     // ══════════════════════════════════════════════════════════════
-    let candidates = cachedBuses.filter(b => b.direction === 'toward_glavni');
+    let candidates = cachedBuses.filter(b => b.direction === wantDirection);
 
-    // STRICT KILL-LINES: The millisecond a bus passes your extraction stop, it is DEAD to you.
+    // STRICT KILL-LINES: The millisecond a bus departs your extraction stop, it is DEAD.
+    // Added 0.0005 deg (~50m) buffer for GPS drift at the stop.
     if (commute === 'to_home') {
-        // At work, extracting at Otok. Pass Otok lat = dead.
-        candidates = candidates.filter(b => b.lat < STOPS.oresk.lat + 0.0002);
+        // Extracting at Otok. Bus heading NORTH. If lat > Otok, it has passed.
+        candidates = candidates.filter(b => b.lat <= STOPS.oresk.lat + 0.0005);
     } else {
-        // At home, extracting at Glavni. Pass Glavni lat = dead.
-        candidates = candidates.filter(b => b.lat < STOPS.glavni.lat + 0.0002);
+        // Extracting at Glavni. Bus heading SOUTH. If lat < Glavni, it has departed.
+        candidates = candidates.filter(b => b.lat >= STOPS.glavni.lat - 0.0005);
     }
 
     if (candidates.length === 0) return null;
@@ -767,8 +766,8 @@ function renderUpdate() {
 
         // Timer shows distance in meters instead of countdown
         liveEtaMinutes = null;
-        bigTimerEl.textContent = `${distMeters}m`;
-        bigTimerEl.style.color = isStanding ? 'var(--green)' : 'var(--amber)';
+        bigTimer.textContent = `${distMeters}m`;
+        bigTimer.style.color = isStanding ? 'var(--green)' : 'var(--amber)';
 
         // Prediction cells
         predBus.textContent = `${distMeters}m`;
@@ -778,24 +777,25 @@ function renderUpdate() {
         if (userLat !== null) {
             const distToStop = distM(userLat, userLon, extractionStop.lat, extractionStop.lon);
             const walkMin = distToStop / (WALK_SPEED_MPS * 60);
-            const nearStop = distToStop < 2000; // within 2km = actively walking
+            const nearStop = distToStop < 2000;
             predWalk.textContent = fmtMin(walkMin);
             predWalk.className = 'pred-val';
             if (nearStop) {
-                predBuf.textContent = walkMin < 2 ? 'YES' : 'RUN';
-                predBuf.className = walkMin < 2 ? 'pred-val green' : 'pred-val red';
-                updateRing(Math.max(0.5, walkMin));
+                predBuf.textContent = walkMin < 1 ? 'YES' : 'RUN';
+                predBuf.className = walkMin < 1 ? 'pred-val green' : 'pred-val red';
             } else {
                 predBuf.textContent = 'MONITORING';
                 predBuf.className = 'pred-val';
-                updateRing(0.3); // tiny dot when far away
             }
         } else {
             predWalk.textContent = '--m';
             predBuf.textContent = '---';
             predBuf.className = 'pred-val';
-            updateRing(0.3); // tiny ring
         }
+        
+        // At the station, the extraction ring must be tiny (approx 0.2 minutes of walking distance)
+        // because the bus ETA is technically 0.
+        updateRing(0.2);
 
         // Prediction labels
         document.querySelector('#prediction .pred-cell:nth-child(1) .pred-lbl').textContent = 'DIST';
