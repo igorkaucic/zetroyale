@@ -19,7 +19,8 @@ const ZET_URL = 'https://www.zet.hr/gtfs-rt-protobuf';
 
 const STOPS = {
     oresk:   { name: 'Otok',    lat: 45.760914, lon: 15.984021 },
-    glavni:  { name: 'Glavni Kolodvor', lat: 45.80292, lon: 15.97724 }
+    glavni:  { name: 'Glavni Kolodvor', lat: 45.80292, lon: 15.97724 },
+    vg:      { name: 'Velika Gorica', lat: 45.7115, lon: 16.0773 }
 };
 
 const positionHistory = {};
@@ -160,8 +161,10 @@ async function fetchBuses() {
             const roadFactor = 1.35;
             const distOresk   = haversine(lat, lon, STOPS.oresk.lat,  STOPS.oresk.lon);
             const distGlavni  = haversine(lat, lon, STOPS.glavni.lat, STOPS.glavni.lon);
+            const distVG      = haversine(lat, lon, STOPS.vg.lat, STOPS.vg.lon);
             const etaOresk    = Math.round((distOresk  * roadFactor) / effectiveSpeed * 60);
             const etaGlavni   = Math.round((distGlavni * roadFactor) / effectiveSpeed * 60);
+            const etaVG       = Math.round((distVG * roadFactor) / effectiveSpeed * 60);
 
             console.log(`  [BUS] ${id.slice(-8)} | lat=${lat.toFixed(4)} | dir=${direction} (${dirSource}) | spd=${Math.round(speed)} | dGl=${distGlavni.toFixed(2)}km`);
 
@@ -172,7 +175,8 @@ async function fetchBuses() {
                 direction, directionId, tripId,
                 distOresk:  Math.round(distOresk  * 100) / 100,
                 distGlavni: Math.round(distGlavni * 100) / 100,
-                etaOresk, etaGlavni
+                distVG:     Math.round(distVG * 100) / 100,
+                etaOresk, etaGlavni, etaVG
             });
         });
 
