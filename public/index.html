@@ -742,18 +742,23 @@ function renderUpdate() {
         if (userLat !== null) {
             const distToStop = distM(userLat, userLon, extractionStop.lat, extractionStop.lon);
             const walkMin = distToStop / (WALK_SPEED_MPS * 60);
+            const nearStop = distToStop < 2000; // within 2km = actively walking
             predWalk.textContent = fmtMin(walkMin);
             predWalk.className = 'pred-val';
-            predBuf.textContent = walkMin < 2 ? 'YES' : 'RUN';
-            predBuf.className = walkMin < 2 ? 'pred-val green' : 'pred-val red';
-
-            // Tiny ring at station
-            updateRing(Math.max(0.5, walkMin));
+            if (nearStop) {
+                predBuf.textContent = walkMin < 2 ? 'YES' : 'RUN';
+                predBuf.className = walkMin < 2 ? 'pred-val green' : 'pred-val red';
+                updateRing(Math.max(0.5, walkMin));
+            } else {
+                predBuf.textContent = 'MONITORING';
+                predBuf.className = 'pred-val';
+                updateRing(0.3); // tiny dot when far away
+            }
         } else {
             predWalk.textContent = '--m';
             predBuf.textContent = '---';
             predBuf.className = 'pred-val';
-            updateRing(0.5); // tiny ring
+            updateRing(0.3); // tiny ring
         }
 
         // Prediction labels
@@ -899,8 +904,9 @@ function renderUpdate() {
         }
     }
 
-    // ── Notification
-    if (busEta <= 5 && !notified) {
+    // ── Notification (only when near the stop, not from home)
+    const userNearStop = userLat !== null && distM(userLat, userLon, extractionStop.lat, extractionStop.lon) < 2000;
+    if (busEta <= 5 && !notified && userNearStop) {
         notified = true;
         showToast();
         sendNotif(busEta);
