@@ -552,61 +552,31 @@ let busMarkers = {};
 function getBestBus() {
     if (cachedBuses.length === 0) return null;
 
-    // ── PRE-FILTER: Exclude buses that already PASSED the extraction stop ──
-    // to_work: boarding at Glavni. Bus comes from south. Once it's NORTH of Glavni
-    //          AND heading south (toward_vg), it already left. It's gone.
-    // to_home: boarding at Oreškovićeva. Bus comes from south. Once it's NORTH of
-    //          Oreškovićeva AND still heading north (toward_glavni), it passed us.
-    const eligible = cachedBuses.filter(b => {
-        if (commute === 'to_work') {
-            // Bus passed Glavni heading south = departed, gone
-            if (b.lat > extractionStop.lat && b.direction === 'toward_vg') return false;
-        }
-        if (commute === 'to_home') {
-            // Bus is north of Oreškovićeva = already passed our stop
-            if (b.lat > extractionStop.lat) return false;
-        }
+    // ── HARD KILL: remove buses that are useless to us ──────────────
+    // to_work: we board at Glavni. We ONLY care about buses heading toward_glavni.
+    //          Once a bus is heading toward_vg, it DEPARTED. Dead. No exceptions.
+    // to_home: we board at Oreškovićeva. Bus must be SOUTH of our stop.
+    //          Once it's north of Oreškovićeva, it passed us. Dead.
+    const alive = cachedBuses.filter(b => {
+        if (commute === 'to_work' && b.direction === 'toward_vg') return false;
+        if (commute === 'to_home' && b.lat > extractionStop.lat) return false;
         return true;
     });
 
-    if (eligible.length === 0) return null;
+    if (alive.length === 0) return null;
 
-    // PRIORITY 1: Bus AT extraction stop (within 500m) and hasn't passed yet
-    const atStation = eligible.filter(b => {
-        if (b[busDistField] >= 0.5) return false;
-        if (commute === 'to_home') return b.direction === 'toward_glavni' || b.direction === 'unknown';
-        // to_work: bus arriving or stopped (not yet departed south)
-        if (commute === 'to_work') return b.direction === 'toward_glavni' || b.direction === 'unknown' || b.speed < 3;
-        return false;
-    });
-
+    // PRIORITY 1: Bus AT extraction stop (within 500m)
+    const atStation = alive.filter(b => b[busDistField] < 0.5);
     if (atStation.length > 0) {
         atStation.sort((a, b) => a[busDistField] - b[busDistField]);
         return atStation[0];
     }
 
-    // PRIORITY 2: Bus heading in the RIGHT direction, not yet at station
-    let inbound = eligible.filter(b => b.direction === wantDirection || b.direction === 'unknown');
-
-    // Only buses south of the extraction stop
-    inbound = inbound.filter(b => b.lat < extractionStop.lat);
-
-    if (inbound.length > 0) {
-        inbound.sort((a, b) => a[busEtaField] - b[busEtaField]);
-        return inbound[0];
-    }
-
-    // PRIORITY 3: Fallback — closest eligible bus heading right way
-    const anyCorrect = eligible.filter(b => b.direction === wantDirection);
-    if (anyCorrect.length > 0) {
-        anyCorrect.sort((a, b) => a[busEtaField] - b[busEtaField]);
-        return anyCorrect[0];
-    }
-
-    // PRIORITY 4: Last resort — closest eligible bus
-    eligible.sort((a, b) => a[busDistField] - b[busDistField]);
-    return eligible[0];
+    // PRIORITY 2: Closest by ETA
+    alive.sort((a, b) => a[busEtaField] - b[busEtaField]);
+    return alive[0];
 }
+
 
 function updateBusMarkers() {
     const currentIds = new Set();
