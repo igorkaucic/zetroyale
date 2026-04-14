@@ -214,6 +214,10 @@
             background:#fff;border:3px solid var(--cyan);
             box-shadow:0 0 15px rgba(0,255,213,.8);position:relative;
         }
+        .minor-stop-dot{
+            width:6px;height:6px;border-radius:50%;
+            background:rgba(0,255,213,0.35);border:1px solid rgba(0,255,213,0.15);
+        }
         .user-ring{
             position:absolute;top:-12px;left:-12px;width:42px;height:42px;
             border-radius:50%;border:1px solid rgba(0,255,213,.5);
@@ -297,7 +301,7 @@
     </div>
     <div class="intel-grid">
         <div class="intel-row"><div class="intel-lbl">Current Speed</div><div class="intel-val amber" id="i-spd">--</div></div>
-        <div class="intel-row"><div class="intel-lbl">Avg Speed</div><div class="intel-val" id="i-avg">--</div></div>
+        <div class="intel-row"><div class="intel-lbl">Next Stop</div><div class="intel-val" id="i-nxt" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">--</div></div>
         <div class="intel-row"><div class="intel-lbl">ETA → Otok</div><div class="intel-val green" id="i-eta-o">--</div></div>
         <div class="intel-row"><div class="intel-lbl" id="i-lbl-dest">ETA → Dest</div><div class="intel-val green" id="i-eta-dest">--</div></div>
         <div class="intel-row"><div class="intel-lbl">Dist to Otok</div><div class="intel-val" id="i-d-o">--</div></div>
@@ -317,6 +321,28 @@
 // ══════════════════════════════════════════════════════════
 //  ZET ROYALE — Full Tactical Frontend
 // ══════════════════════════════════════════════════════════
+
+const ALL_STOPS_268 = [
+    { name: "GLAVNI KOLODVOR", lat: 45.80292, lon: 15.97724 },
+    { name: "Lisinski", lat: 45.80010, lon: 15.97825 },
+    { name: "N.S. knjižnica", lat: 45.79590, lon: 15.97822 },
+    { name: "Bundek", lat: 45.78650, lon: 15.97822 },
+    { name: "Središće", lat: 45.77950, lon: 15.97815 },
+    { name: "Sopot", lat: 45.77450, lon: 15.97805 },
+    { name: "Građevinska škola", lat: 45.77100, lon: 15.97800 },
+    { name: "Podbrežje", lat: 45.76600, lon: 15.98050 },
+    { name: "Otok (Sv. Klara)", lat: 45.76091, lon: 15.98402 },
+    { name: "Otok-škola", lat: 45.75650, lon: 15.98750 },
+    { name: "N.Z. Trnavčević", lat: 45.75200, lon: 15.99020 },
+    { name: "Odra", lat: 45.74850, lon: 15.99200 },
+    { name: "Veliko Polje", lat: 45.74150, lon: 15.99850 },
+    { name: "Domovinskog mosta", lat: 45.73500, lon: 16.00200 },
+    { name: "Buzin", lat: 45.73300, lon: 16.00350 },
+    { name: "Buzin-Supernova", lat: 45.72900, lon: 16.00700 },
+    { name: "Mlaka", lat: 45.72450, lon: 16.01250 },
+    { name: "ZRAČNA LUKA", lat: 45.72250, lon: 16.02350 },
+    { name: "VELIKA GORICA", lat: 45.71150, lon: 16.07730 }
+];
 
 const STOPS = {
     oresk:   { name: 'OTOK',    lat: 45.760914, lon: 15.984021 },
@@ -451,12 +477,18 @@ setInterval(() => {
     }
 }, 1000);
 // ══════════════════════════════════════════════════
-const map = L.map('map', { zoomControl: false }).setView([45.788, 15.983], 13);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { 
-    maxZoom: 19,
-    keepBuffer: 24,           // Keep huge amount of tiles in memory out of view
-    updateWhenZooming: false  // Prevent grey flashing mid-zoom
+const map = L.map('map', {zoomControl: false, attributionControl: false}).setView([45.7600, 15.9800], 13);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    maxZoom: 19
 }).addTo(map);
+
+// Paint all exact stops subtly
+ALL_STOPS_268.forEach(s => {
+    L.marker([s.lat, s.lon], {
+        icon: L.divIcon({ className: 'minor-stop-dot', iconSize:[6,6] }),
+        interactive: false
+    }).addTo(map);
+});
 
 // Stop markers
 function makeStopMarker(stop) {
@@ -990,7 +1022,19 @@ function showIntel(bus) {
     document.getElementById('intel').style.display = 'block';
     document.getElementById('intel-title').textContent = `// BUS #268 — ${bus.id.slice(-5)}`;
     document.getElementById('i-spd').textContent = `${bus.speed || 0} KM/H`;
-    document.getElementById('i-avg').textContent = `${bus.avgSpeed || 0} KM/H`;
+    
+    // Exactly calculate next stop by latitude sweep
+    let nextStopName = "--";
+    if (bus.direction === 'toward_vg') {
+        const ahead = ALL_STOPS_268.find(s => s.lat < bus.lat - 0.0005);
+        if(ahead) nextStopName = ahead.name;
+    } else if (bus.direction === 'toward_glavni') {
+        const rStops = [...ALL_STOPS_268].reverse();
+        const ahead = rStops.find(s => s.lat > bus.lat + 0.0005);
+        if(ahead) nextStopName = ahead.name;
+    }
+    document.getElementById('i-nxt').textContent = nextStopName;
+
     document.getElementById('i-eta-o').textContent = `${bus.etaOresk ?? '--'} MIN`;
     document.getElementById('i-d-o').textContent = `${bus.distOresk ?? '--'} KM`;
 
