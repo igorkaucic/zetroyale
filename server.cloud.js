@@ -79,6 +79,12 @@ async function fetchBuses() {
         const now = Date.now();
         const buses = [];
 
+        // Global live traffic intelligence (averages the speed across all currently moving 268 buses)
+        let activeSpeeds = Object.values(positionHistory)
+            .map(p => p.speeds && p.speeds.length ? p.speeds.reduce((a,b)=>a+b,0)/p.speeds.length : 0)
+            .filter(s => s > 15 && s < 80);
+        let liveTrafficSpeed = activeSpeeds.length > 0 ? (activeSpeeds.reduce((a,b)=>a+b,0) / activeSpeeds.length) : 32;
+
         feed.entity.forEach(entity => {
             if (!entity.vehicle || !entity.vehicle.position) return;
             const routeId = entity.vehicle.trip ? (entity.vehicle.trip.routeId || '') : '';
@@ -155,10 +161,12 @@ async function fetchBuses() {
                 else if (directionId === 1) { direction = 'toward_vg'; dirSource = 'gtfs_boot'; }
             }
 
-            // Smooth ETA: bus average speed, clamped to a minimum of 24 km/h
-            // Prevents ETA from skyrocketing to 5 minutes just because it hit a red light.
-            const effectiveSpeed = Math.max(avgSpeed || 0, 24);
-            const roadFactor = 1.35;
+            // Live traffic modeling based on fleet movement
+            let busTargetSpeed = avgSpeed > 10 ? avgSpeed : liveTrafficSpeed;
+            // Floor of 16km/h prevents mathematically absurd red light ETAs while honoring heavy traffic
+            const effectiveSpeed = Math.max(busTargetSpeed, 16);
+            
+            const roadFactor = 1.15; // Tuned specifically for Većeslava Holjevca's linear road curve
             const distOresk   = haversine(lat, lon, STOPS.oresk.lat,  STOPS.oresk.lon);
             const distGlavni  = haversine(lat, lon, STOPS.glavni.lat, STOPS.glavni.lon);
             const distVG      = haversine(lat, lon, STOPS.vg.lat, STOPS.vg.lon);
