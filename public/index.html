@@ -553,49 +553,37 @@ const clientBusHistory = {};
 function getBestBus() {
     if (cachedBuses.length === 0) return null;
 
-    // ── CLIENT-SIDE DIRECTION CHECK ─────────────────────────────
-    // Track each bus's lat over time. If lat is DECREASING, bus is heading south.
-    // This overrides whatever the server says.
+    // ── CLIENT GPS DIRECTION: track lat movement per bus ─────────
     cachedBuses.forEach(b => {
         const prev = clientBusHistory[b.id];
         if (prev) {
             const latDelta = b.lat - prev.lat;
-            if (Math.abs(latDelta) > 0.00005) {
-                b._clientDir = latDelta > 0 ? 'toward_glavni' : 'toward_vg';
+            if (Math.abs(latDelta) > 0.00003) {
+                b._moving = latDelta > 0 ? 'toward_glavni' : 'toward_vg';
             } else {
-                b._clientDir = prev.dir || b.direction;
+                b._moving = prev.dir || 'stopped';
             }
         } else {
-            b._clientDir = b.direction;
+            b._moving = 'stopped';
         }
-        clientBusHistory[b.id] = { lat: b.lat, dir: b._clientDir };
+        clientBusHistory[b.id] = { lat: b.lat, dir: b._moving };
     });
 
-    // ── HARD KILL ───────────────────────────────────────────────
-    // Use BOTH server direction AND client direction. If EITHER says toward_vg → DEAD.
-    const alive = cachedBuses.filter(b => {
-        if (commute === 'to_work') {
-            if (b.direction === 'toward_vg' || b._clientDir === 'toward_vg') return false;
-        }
-        if (commute === 'to_home') {
-            if (b.lat > extractionStop.lat) return false;
-            if (b.direction === 'toward_vg' || b._clientDir === 'toward_vg') return false;
-        }
-        return true;
-    });
+    // ══════════════════════════════════════════════════════════════
+    // THE ONE RULE: ONLY buses heading TOWARD GLAVNI get selected.
+    // If server says toward_glavni OR client GPS says toward_glavni = alive.
+    // EVERYTHING else is DEAD. No fallback. No exceptions.
+    // If ALL are heading away or stopped = return null. Show nothing.
+    // ══════════════════════════════════════════════════════════════
+    const headingToGlavni = cachedBuses.filter(b =>
+        b.direction === 'toward_glavni' || b._moving === 'toward_glavni'
+    );
 
-    if (alive.length === 0) return null;
+    if (headingToGlavni.length === 0) return null;
 
-    // PRIORITY 1: Bus AT extraction stop (within 500m)
-    const atStation = alive.filter(b => b[busDistField] < 0.5);
-    if (atStation.length > 0) {
-        atStation.sort((a, b) => a[busDistField] - b[busDistField]);
-        return atStation[0];
-    }
-
-    // PRIORITY 2: Closest by ETA
-    alive.sort((a, b) => a[busEtaField] - b[busEtaField]);
-    return alive[0];
+    // Pick closest by ETA to extraction stop
+    headingToGlavni.sort((a, b) => a[busEtaField] - b[busEtaField]);
+    return headingToGlavni[0];
 }
 
 
