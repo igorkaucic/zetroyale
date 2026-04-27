@@ -20,5 +20,5 @@ git push origin main
 
 # Deploy to gh-pages branch
 npx -y gh-pages -d ../public_v2
-Write-Host "Deployed v$newVersion to https://SubPhaser.github.io/zet-royale/" -ForegroundColor Green
+Write-Host "Deployed v$newVersion to https://igorkaucic.github.io/zetroyale/" -ForegroundColor Green
 
