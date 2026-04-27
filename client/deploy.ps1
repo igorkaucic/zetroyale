@@ -10,8 +10,16 @@ Write-Host " Version bumped to: $newVersion" -ForegroundColor Green
 
 # Write version.ts for the React app
 Set-Content -Path "src/version.ts" -Value "export const APP_VERSION = '$newVersion';" -Encoding UTF8
-# Write version.json into public folder for auto-update polling
-Set-Content -Path "public/version.json" -Value "{ `"version`": `"$newVersion`" }" -Encoding UTF8
+
+# Patch service worker version to trigger auto-update
+$swFile = "public/sw.js"
+if (Test-Path $swFile) {
+    $swContent = Get-Content $swFile -Raw
+    $swContent = $swContent -replace "// VERSION: .*", "// VERSION: $newVersion"
+    $swContent = $swContent -replace "const CACHE_VERSION = 'zr-v.*?'", "const CACHE_VERSION = 'zr-v$newVersion'"
+    Set-Content -Path $swFile -Value $swContent -Encoding UTF8 -NoNewline
+    Write-Host " SW version synced: zr-v$newVersion" -ForegroundColor Green
+}
 
 Write-Host "Building ZET Royale..." -ForegroundColor Yellow
 npm run build

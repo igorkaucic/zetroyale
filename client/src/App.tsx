@@ -90,35 +90,6 @@ export default function App() {
     });
   }, []);
 
-  // Poll for new version to auto-refresh
-  useEffect(() => {
-    const checkVersion = async () => {
-      try {
-        const res = await fetch(`/zetroyale/version.json?t=${Date.now()}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.version && data.version !== APP_VERSION) {
-            console.log(`Update detected: ${APP_VERSION} -> ${data.version}. Reloading...`);
-            window.location.reload();
-          }
-        }
-      } catch (e) {
-        // Ignore network errors
-      }
-    };
-    
-    // Check every 60 seconds
-    const interval = setInterval(checkVersion, 60000);
-    // Also check when tab becomes visible
-    const handleVis = () => { if (document.visibilityState === 'visible') checkVersion(); };
-    document.addEventListener('visibilitychange', handleVis);
-    
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVis);
-    };
-  }, []);
-
 
 
   const [legSchedules, setLegSchedules] = useState<Record<number, any>>({});
