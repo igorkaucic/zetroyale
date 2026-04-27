@@ -1,6 +1,6 @@
 ﻿// ZET Royale Service Worker â€” Auto-Update Engine
-// VERSION: 0.0.6
-const CACHE_VERSION = 'zr-v0.0.6';
+// VERSION: 0.0.7
+const CACHE_VERSION = 'zr-v0.0.7';
 const STATIC_CACHE = CACHE_VERSION + '-static';
 
 // Assets to pre-cache on install
