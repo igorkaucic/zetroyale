@@ -4,6 +4,7 @@ import {
   removeLocation,
   getAllLocations
 } from '../engine/profile';
+import { APP_VERSION } from '../version';
 
 interface SettingsPanelProps {
   profile: UserProfile;
@@ -142,6 +143,11 @@ export function SettingsPanel({ profile, onProfileChange, showToast, onPickOnMap
         >
           📋 Copy Session Logs (Debug)
         </button>
+      </div>
+      
+      {/* Version Display */}
+      <div style={{ textAlign: 'center', marginTop: '20px', paddingBottom: '20px', fontSize: '10px', color: 'rgba(255,255,255,0.2)', fontFamily: "'Orbitron', monospace" }}>
+        ZET ROYALE v{APP_VERSION}
       </div>
     </div>
   );

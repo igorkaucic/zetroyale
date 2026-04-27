@@ -8,6 +8,11 @@ $packageData = Get-Content package.json | ConvertFrom-Json
 $newVersion = $packageData.version
 Write-Host " Version bumped to: $newVersion" -ForegroundColor Green
 
+# Write version.ts for the React app
+Set-Content -Path "src/version.ts" -Value "export const APP_VERSION = '$newVersion';" -Encoding UTF8
+# Write version.json into public folder for auto-update polling
+Set-Content -Path "public/version.json" -Value "{ `"version`": `"$newVersion`" }" -Encoding UTF8
+
 Write-Host "Building ZET Royale..." -ForegroundColor Yellow
 npm run build
 if ($LASTEXITCODE -ne 0) { throw "Build failed" }
