@@ -21,28 +21,26 @@ export function getDefaultProfile(): UserProfile {
   };
 }
 
-/** Load profile from Node API */
+/** Load profile from LocalStorage */
 export async function loadProfile(): Promise<UserProfile> {
   try {
-    const res = await fetch('/api/settings');
-    const data = await res.json();
-    if (data && data.id) return data as UserProfile;
+    const saved = localStorage.getItem('zr_profile');
+    if (saved) {
+      const data = JSON.parse(saved);
+      if (data && data.id) return data as UserProfile;
+    }
   } catch (e) {
-    console.warn('[PROFILE] Failed to load from API, using default:', e);
+    console.warn('[PROFILE] Failed to load from localStorage:', e);
   }
   return getDefaultProfile();
 }
 
-/** Save profile to Node API */
+/** Save profile to LocalStorage */
 export async function saveProfile(profile: UserProfile): Promise<void> {
   try {
-    await fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(profile)
-    });
+    localStorage.setItem('zr_profile', JSON.stringify(profile));
   } catch (e) {
-    console.error('[PROFILE] Failed to save to API:', e);
+    console.error('[PROFILE] Failed to save to localStorage:', e);
   }
 }
 
