@@ -7,14 +7,26 @@ const http = require('http');
 const fs = require('fs');
 const os = require('os');
 
-// ── Load the real certs (same ones used by sauna builder) ─────
-const httpsOptions = {
-    key:  fs.readFileSync('localhost-key.pem'),
-    cert: fs.readFileSync('localhost.pem')
-};
+// ── Server Startup (Local HTTPS vs Cloud HTTP) ────────────────
+const isCloud = process.env.PORT != null;
+const CLOUD_PORT = process.env.PORT || 3000;
+
+// ── Load the real certs (only needed for local dev) ─────
+let httpsOptions = {};
+if (!isCloud) {
+    try {
+        httpsOptions = {
+            key:  fs.readFileSync('localhost-key.pem'),
+            cert: fs.readFileSync('localhost.pem')
+        };
+    } catch (e) {
+        console.warn('⚠️ Local certs missing. HTTPS will fail if not in cloud mode.');
+    }
+}
 
 const app = express();
 app.use(cors());
+app.use(express.static('public_v2'));
 app.use(express.static('public'));
 
 const HTTPS_PORT = 3268;
@@ -153,30 +165,37 @@ app.get('/api/buses', async (_req, res) => {
     res.json({ buses: cachedBuses, stops: STOPS, lastUpdate: lastFetchTime });
 });
 
-// ── HTTP → HTTPS redirect ─────────────────────────────────────
-http.createServer((req, res) => {
-    const host = (req.headers.host || 'localhost').replace(`:${HTTP_PORT}`, '');
-    res.writeHead(301, { Location: `https://${host}:${HTTPS_PORT}${req.url}` });
-    res.end();
-}).listen(HTTP_PORT, '::', () => {
-    console.log(`↪ HTTP redirect on port ${HTTP_PORT}`);
-});
+// ── Server Startup ────────────────
+if (isCloud) {
+    app.listen(CLOUD_PORT, '0.0.0.0', () => {
+        console.log(`\n☁️  ZET ROYALE — CLOUD BACKEND ONLINE ON PORT ${CLOUD_PORT}`);
+    });
+} else {
+    // Local Dev: HTTP → HTTPS redirect
+    http.createServer((req, res) => {
+        const host = (req.headers.host || 'localhost').replace(`:${HTTP_PORT}`, '');
+        res.writeHead(301, { Location: `https://${host}:${HTTPS_PORT}${req.url}` });
+        res.end();
+    }).listen(HTTP_PORT, '::', () => {
+        console.log(`↪ HTTP redirect on port ${HTTP_PORT}`);
+    });
 
-// ── HTTPS main server ─────────────────────────────────────────
-https.createServer(httpsOptions, app).listen(HTTPS_PORT, '::', () => {
-    const nets = os.networkInterfaces();
-    console.log('\n==========================================');
-    console.log('🔒 ZET ROYALE — HTTPS ONLINE');
-    console.log('==========================================');
-    console.log(`💻 PC:    https://localhost:${HTTPS_PORT}`);
-    for (const name of Object.keys(nets)) {
-        for (const net of nets[name]) {
-            if (net.family === 'IPv4' && !net.internal)
-                console.log(`📱 Phone: https://${net.address}:${HTTPS_PORT}`);
+    // Local Dev: HTTPS main server
+    https.createServer(httpsOptions, app).listen(HTTPS_PORT, '::', () => {
+        const nets = os.networkInterfaces();
+        console.log('\n==========================================');
+        console.log('🔒 ZET ROYALE — LOCAL HTTPS ONLINE');
+        console.log('==========================================');
+        console.log(`💻 PC:    https://localhost:${HTTPS_PORT}`);
+        for (const name of Object.keys(nets)) {
+            for (const net of nets[name]) {
+                if (net.family === 'IPv4' && !net.internal)
+                    console.log(`📱 Phone: https://${net.address}:${HTTPS_PORT}`);
+            }
         }
-    }
-    console.log('==========================================\n');
-});
+        console.log('==========================================\n');
+    });
+}
 
 // Smart fetch loop: only fetch if a client requested data in the last 30 seconds
 setInterval(() => {

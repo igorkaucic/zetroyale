@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import fs from 'fs'
 
 export default defineConfig({
-  base: '/zetroyale/',
+  base: './',
   plugins: [react()],
   build: {
     outDir: '../public_v2',
