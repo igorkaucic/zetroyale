@@ -126,7 +126,14 @@ export function TacticalMap({
     mapRef.current = map;
     (window as any).__leafletMap = map;
 
+    // Fix map loading/grey tile issues on mobile viewport changes
+    const invalidate = () => map.invalidateSize();
+    window.addEventListener('resize', invalidate);
+    const interval = setInterval(invalidate, 1000); // safety catch for dynamic UI changes
+
     return () => {
+      window.removeEventListener('resize', invalidate);
+      clearInterval(interval);
       map.remove();
       mapRef.current = null;
     };

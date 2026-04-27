@@ -2124,6 +2124,7 @@ export default function App() {
              setPickingMode(mode);
              setPickName('');
              setTimeout(() => {
+               window.dispatchEvent(new Event('resize'));
                (window as any).__mapNav?.flyToUser();
              }, 50);
           }}
