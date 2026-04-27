@@ -1,0 +1,24 @@
+{
+  "id": "4wk6msoj",
+  "name": "Default",
+  "home": {
+    "id": "home_oee3iptl",
+    "name": "Home",
+    "type": "home",
+    "lat": 45.8151578571005,
+    "lon": 15.876268392931646,
+    "connectedRoutes": []
+  },
+  "hubs": [],
+  "destinations": [
+    {
+      "id": "dest_1tz7pvfb",
+      "name": "Saved Place",
+      "type": "destination",
+      "lat": 45.813023929450814,
+      "lon": 15.9753588844246,
+      "connectedRoutes": [],
+      "hubId": ""
+    }
+  ]
+}

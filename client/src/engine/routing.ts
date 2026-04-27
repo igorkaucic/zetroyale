@@ -178,10 +178,24 @@ export function computeJourneyLegs(
                     }
                 }
                 
-                // APPROACH FILTER: Vehicle must be heading TOWARD the board stop.
-                // If the vehicle is already past the board stop and heading away, skip it.
+                // APPROACH FILTER: Vehicle must be heading in the direction of the journey leg.
+                // It must be heading roughly from boardStop to exitStop.
                 const h = v.heading || v.bearing || 0;
-                if (h !== 0 && dist > 300) {
+                if (h !== 0 && exitStop.lat && exitStop.lon) {
+                    // What is the direction of the actual journey?
+                    const legBearing = calculateHeading(boardStop.lat, boardStop.lon, exitStop.lat, exitStop.lon);
+                    let diff = Math.abs(h - legBearing);
+                    if (diff > 180) diff = 360 - diff;
+                    
+                    // Allow up to 90 degrees deviation (buses don't travel in straight lines)
+                    // If it's more than 90, it's generally heading the wrong way.
+                    if (diff > 90) {
+                        return false;
+                    }
+                }
+
+                // If it passed the stop, drop it (unless very close)
+                if (h !== 0 && dist > 500) {
                     const brngToBoard = calculateHeading(v.lat, v.lon, boardStop.lat, boardStop.lon);
                     let angleDiff = Math.abs(h - brngToBoard);
                     if (angleDiff > 180) angleDiff = 360 - angleDiff;

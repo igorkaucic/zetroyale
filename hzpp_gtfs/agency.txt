@@ -1,0 +1,2 @@
+agency_id,agency_name,agency_url,agency_timezone,agency_lang,agency_phone,agency_email
+HŽ,HŽ Putnicki prijevoz,http://hzpp.hr,Europe/Zagreb,hr,013782583,reklamacije@hzpp.hr

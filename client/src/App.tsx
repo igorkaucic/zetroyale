@@ -58,6 +58,7 @@ export default function App() {
   const [pickLat, setPickLat] = useState<number | null>(null);
   const [pickLon, setPickLon] = useState<number | null>(null);
   const [pickName, setPickName] = useState('');
+  const [pickRoutes, setPickRoutes] = useState('');
 
   const showToast = useCallback((msg: string) => {
     setToastMsg(msg);
@@ -100,6 +101,7 @@ export default function App() {
   const [activeChainIndex, setActiveChainIndex] = useState(0);
   const lockedRouteRef = useRef<string | null>(null);
   const [isJourneyExpanded, setIsJourneyExpanded] = useState(false);
+  const [isCardCollapsed, setIsCardCollapsed] = useState(false);
 
   // ── Detect active leg from GPS (Only once when idle) ──
   useEffect(() => {
@@ -151,10 +153,8 @@ export default function App() {
             if (lockedRoute) {
               const foundIdx = data.journeyChains.findIndex((c: any) => c.legs && c.legs.length > 0 && c.legs[0].route === lockedRoute);
               if (foundIdx !== -1 && foundIdx <= 1) {
-                // Locked route is still in top 2 — keep it
                 setActiveChainIndex(foundIdx);
               } else {
-                // Locked route dropped out of top options or gone entirely — release the lock
                 lockedRouteRef.current = null;
                 setActiveChainIndex(0);
               }
@@ -163,7 +163,7 @@ export default function App() {
             }
             
             if (data.journeyChains.length > 0) {
-              logEvent('PLANNER', `Found ${data.journeyChains.length} routes: ${data.routes?.join(', ')}`, data);
+              logEvent('PLANNER', `Auto-discovered ${data.journeyChains.length} routes: ${data.routes?.join(', ')}`, data);
             }
           }
           // Re-poll every 30s for updated options
@@ -1035,8 +1035,8 @@ export default function App() {
       {/* GHOST VEHICLE POPUP */}
       {selectedGhost && (
         <div style={{
-          position: 'absolute',
-          top: '90px',
+          position: 'fixed',
+          top: 'calc(90px + env(safe-area-inset-top, 0px))',
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 10000,
@@ -1212,8 +1212,8 @@ export default function App() {
 
         return (
         <div style={{
-          position: 'absolute',
-          top: '60px',
+          position: 'fixed',
+          top: 'calc(60px + env(safe-area-inset-top, 0px))',
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 10000,
@@ -1381,9 +1381,33 @@ export default function App() {
       )}
 
       {/* MAIN INFO CARD */}
-      {activeNav !== 'settings' && (
+      {activeNav !== 'settings' && activeNav !== 'timetable' && (
       <div className={`info-card ${isHzppLeg ? (bufferMin !== null && bufferMin < 0 ? 'extract' : bufferMin !== null && bufferMin < 2 ? 'risk' : 'walk') : hzppData ? 'extract' : phase}`} style={isHzppLeg ? { border: '2px solid var(--cyan)', boxShadow: '0 0 20px rgba(0,255,213,0.3)' } : hzppData ? { border: '2px solid #FF000A', boxShadow: '0 0 20px rgba(255,0,10,0.5)' } : {}}>
-        {isHzppLeg && hzppSchedule.length > 0 ? (() => {
+        {/* Collapse toggle strip */}
+        <div
+          onClick={() => setIsCardCollapsed(c => !c)}
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: isCardCollapsed ? 0 : '8px',
+            cursor: 'pointer',
+            userSelect: 'none',
+            paddingBottom: isCardCollapsed ? 0 : '6px',
+            borderBottom: isCardCollapsed ? 'none' : '1px solid rgba(255,255,255,0.08)',
+          }}
+        >
+          <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', letterSpacing: '1px', fontFamily: "'Orbitron', monospace" }}>
+            {isCardCollapsed ? '▲ EXPAND' : '▼ COLLAPSE'}
+          </span>
+          {isCardCollapsed && (
+            <span style={{ fontSize: '11px', color: 'var(--cyan)', fontFamily: "'Orbitron', monospace", fontWeight: 700, letterSpacing: '1px' }}>
+              ETA {timerDisplay}
+            </span>
+          )}
+        </div>
+        {!isCardCollapsed && (
+        <>{isHzppLeg && hzppSchedule.length > 0 ? (() => {
           // HŽPP SCHEDULE MODE: use second-precision countdown
           const nextTrain = hzppSchedule[0];
           const [dH, dM, dS] = nextTrain.departure.split(':').map(Number);
@@ -2063,6 +2087,8 @@ export default function App() {
           </>
         )}
       </div>
+        </> )}
+      </div>
       )}
 
       {/* NAV BAR */}
@@ -2170,7 +2196,7 @@ export default function App() {
                  placeholder={pickingMode === 'home' ? "Home Name (e.g. Gajnice)" : "Place Name (e.g. Work, Gym)"}
                  value={pickName}
                  onChange={e => setPickName(e.target.value)}
-                 style={{ fontSize: '14px', padding: '10px', marginBottom: '8px' }}
+                 style={{ fontSize: '14px', padding: '10px', marginBottom: '12px' }}
                />
                <div style={{ display: 'flex', gap: '8px' }}>
                  <button className="settings-btn" style={{ flex: 1, borderColor: 'var(--cyan)' }} onClick={async () => {
@@ -2202,15 +2228,39 @@ export default function App() {
 
       {/* TIMETABLE */}
       {activeNav === 'timetable' && (
-        <TimetablePanel 
-          targetStop={targetStop} 
-          relevantRoutes={relevantRoutes}
-          activeLeg={activeLeg}
-          activeChainLegs={activeChainLegs}
-          profile={profile}
-          fleet={enriched}
-          userLocation={profile.home}
-        />
+        <>
+          {/* Close button */}
+          <div
+            onClick={() => setActiveNav('track')}
+            style={{
+              position: 'fixed',
+              top: 'calc(12px + env(safe-area-inset-top, 0px))',
+              right: '12px',
+              zIndex: 2100,
+              background: 'rgba(0,0,0,0.7)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              borderRadius: '50%',
+              width: '32px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              fontSize: '16px',
+              color: '#fff',
+              backdropFilter: 'blur(8px)',
+            }}
+          >✕</div>
+          <TimetablePanel 
+            targetStop={targetStop} 
+            relevantRoutes={relevantRoutes}
+            activeLeg={activeLeg}
+            activeChainLegs={activeChainLegs}
+            profile={profile}
+            fleet={enriched}
+            userLocation={profile.home}
+          />
+        </>
       )}
     </>
   );

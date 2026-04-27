@@ -268,10 +268,10 @@ export function TimetablePanel({ targetStop, relevantRoutes, activeLeg, profile,
   return (
     <div style={{
       position: 'fixed',
-      top: '60px',
+      top: 'calc(60px + env(safe-area-inset-top, 0px))',
       left: '50%',
       transform: 'translateX(-50%)',
-      width: '90%',
+      width: '92%',
       maxWidth: '340px',
       zIndex: 2002,
       background: 'rgba(4, 7, 12, 0.97)',
